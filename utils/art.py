@@ -4,9 +4,8 @@ import torch
 import torch.nn.functional as F
 
 # algebraic reconstruction technique
-def art(sinogram, img_grid, detr_end, gantry_coor_x, gantry_coor_y, gantry_view, param):
+def art(sinogram, img_end, detr_end, gantry_coor_x, gantry_coor_y, gantry_view, param):
 
-    img_coor_y, img_coor_x = torch.meshgrid(img_grid, img_grid)
     sinogram = sinogram.unsqueeze(0).unsqueeze(0)
     img = torch.zeros(param.img_pixels, param.img_pixels)
 
@@ -15,9 +14,8 @@ def art(sinogram, img_grid, detr_end, gantry_coor_x, gantry_coor_y, gantry_view,
         view = gantry_view[i]
         res = sinogram[:, :, :, i] - forward_propagation(img, gantry_coor_x, gantry_coor_y, view, param)
         res /= param.img_len
-        img += backward_propagation(res, img_coor_x, img_coor_y, detr_end, view, param)
+        img += backward_propagation(res, img_end, detr_end, view, param)
         img = torch.clamp(img, min=0)
-    # img = img.squeeze(0).squeeze(0)
 
     return img
 
@@ -35,7 +33,7 @@ def scan(img, gantry_coor_x, gantry_coor_y, gantry_view, param):
 
 # forward propagation per angle
 def forward_propagation(img, gantry_coor_x, gantry_coor_y, view, param):
-    # counter clockwise
+    # rotate counter clockwise
     # Set angle
     img = img.unsqueeze(0).unsqueeze(0)
     view = torch.tensor([view * np.pi / 180.])
@@ -53,24 +51,25 @@ def forward_propagation(img, gantry_coor_x, gantry_coor_y, view, param):
     return sinogram
 
 # backward propagation per angle
-def backward_propagation(sinogram, img_coor_x, img_coor_y, detr_end, view, param):
+def backward_propagation(sinogram, img_end, detr_end, view, param):
     # pre processing
     sinogram = sinogram.unsqueeze(3)
     # set angle
     view = torch.tensor([view * np.pi / 180.])
+    # rotation matrix
+    theta = torch.tensor([[ torch.cos(view), torch.sin(view), 0],
+                          [-torch.sin(view), torch.cos(view), 0]]).unsqueeze(0)
 
-    # clockwise
-    img_rot_x = img_coor_x * torch.cos(view) + img_coor_y * torch.sin(view)
-    img_rot_y = - img_coor_x * torch.sin(view) + img_coor_y * torch.cos(view)
+    img_grid_rot = F.affine_grid(theta, (1, 1, param.img_pixels, param.img_pixels)).squeeze(0)
+    img_rot_x = img_grid_rot[:, :, 0]
+    img_rot_y = img_grid_rot[:, :, 1]
 
-    img_rot_y = img_rot_y + param.sod
+    img_rot_y = img_rot_y + param.sod / img_end
     samples = param.sdd * img_rot_x / img_rot_y
     samples /= detr_end
-    samples = samples.reshape(-1,1)
+    samples = samples.reshape(-1, 1)
     samples = samples.unsqueeze(2).unsqueeze(0)
     samples = torch.cat([torch.zeros_like(samples), samples], 3)
-    # print('res: {}'.format(sinogram.shape))
-    # print('samples: {}'.format(samples.shape))
 
     img = F.grid_sample(sinogram, samples)
     img = img.squeeze(0).squeeze(0)

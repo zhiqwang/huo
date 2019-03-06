@@ -73,24 +73,22 @@ def main():
     gantry_coor_x /= img_end
     gantry_coor_y /= img_end
 
-    # processing detector coordinate
-    img_grid = torch.linspace(-img_end, img_end, steps=param.img_pixels)
-
+    ## forward
     # img = Image.open('./data/shepp2d.tif')
     # img = np.array(img) / 255.
     # img = torch.from_numpy(img).type(torch.FloatTensor)
     # print('image: {}'.format(img.shape))
 
+    # sinogram = scan(img, gantry_coor_x, gantry_coor_y, gantry_view, param)
+    # print('sinogram: {}'.format(sinogram.shape))
+
+    ## backward
     sinogram = np.load('./data/sinogram.npy')
     print('sinogram: {}'.format(sinogram.shape))
     sinogram = torch.from_numpy(sinogram)
     # reconstruction
-    img = art(sinogram, img_grid, detr_end, gantry_coor_x, gantry_coor_y, gantry_view, param)
+    img = art(sinogram, img_end, detr_end, gantry_coor_x, gantry_coor_y, gantry_view, param)
     print('image: {}'.format(img.shape))
-
-    # forward propagation
-    # sinogram = scan(img, gantry_coor_x, gantry_coor_y, gantry_view, param)
-    # print('sinogram: {}'.format(sinogram.shape))
 
 if __name__ == '__main__':
     main()
