@@ -1,5 +1,6 @@
-# model
-data
+# repo
+data-bin
+.vscode
 logs
 debug.ipynb
 checkpoint
