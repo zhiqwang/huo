@@ -1,10 +1,14 @@
-import os
+# Copyright (c) 2022, Zhiqiang Wang. All rights reserved.
+
 import numpy as np
 import torch
 import torch.nn.functional as F
 
-# algebraic reconstruction technique
+
 def art(sinogram, img_end, detr_end, gantry_coor_x, gantry_coor_y, gantry_view, param):
+    """
+    Algebraic reconstruction technique
+    """
 
     sinogram = sinogram.unsqueeze(0).unsqueeze(0)
     img = torch.zeros(param.img_pixels, param.img_pixels)
@@ -19,8 +23,11 @@ def art(sinogram, img_end, detr_end, gantry_coor_x, gantry_coor_y, gantry_view, 
 
     return img
 
-# doing CT scaning
+
 def scan(img, gantry_coor_x, gantry_coor_y, gantry_view, param):
+    """
+    CT scaning
+    """
 
     sinogram = torch.zeros(param.detr_num, len(gantry_view))
     sinogram = sinogram.unsqueeze(0).unsqueeze(0)
@@ -31,12 +38,15 @@ def scan(img, gantry_coor_x, gantry_coor_y, gantry_view, param):
 
     return sinogram
 
-# forward propagation per angle
+
 def forward_propagation(img, gantry_coor_x, gantry_coor_y, view, param):
+    """
+    Forward propagation per angle
+    """
     # rotate counter clockwise
     # Set angle
     img = img.unsqueeze(0).unsqueeze(0)
-    view = torch.tensor([view * np.pi / 180.])
+    view = torch.tensor([view * np.pi / 180.0])
 
     gantry_rot_x = gantry_coor_x * torch.cos(view) - gantry_coor_y * torch.sin(view)
     gantry_rot_y = gantry_coor_x * torch.sin(view) + gantry_coor_y * torch.cos(view)
@@ -50,15 +60,19 @@ def forward_propagation(img, gantry_coor_x, gantry_coor_y, view, param):
     sinogram = lat_step * torch.sum(img_gantry_interp, dim=0)
     return sinogram
 
-# backward propagation per angle
+
 def backward_propagation(sinogram, img_end, detr_end, view, param):
+    """
+    Backward propagation per angle
+    """
     # pre processing
     sinogram = sinogram.unsqueeze(3)
     # set angle
-    view = torch.tensor([view * np.pi / 180.])
+    view = torch.tensor([view * np.pi / 180.0])
     # rotation matrix
-    theta = torch.tensor([[ torch.cos(view), torch.sin(view), 0],
-                          [-torch.sin(view), torch.cos(view), 0]]).unsqueeze(0)
+    theta = torch.tensor(
+        [[torch.cos(view), torch.sin(view), 0], [-torch.sin(view), torch.cos(view), 0]]
+    ).unsqueeze(0)
 
     img_grid_rot = F.affine_grid(theta, (1, 1, param.img_pixels, param.img_pixels)).squeeze(0)
     img_rot_x = img_grid_rot[:, :, 0]

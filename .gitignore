@@ -1,13 +1,50 @@
-# repo
+# Custom
 data-bin
-.vscode
+checkpoints
 logs
-debug.ipynb
-checkpoint
+*.ipynb
+runs
+huo/version.py
+*.ttf
+wandb
 
 # macOS dir files
 .DS_Store
-## General
+
+# Distribution / packaging
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# Unit test / coverage reports
+htmlcov/
+.tox/
+.nox/
+.coverage
+.coverage.*
+.cache
+test-output.xml
+nosetests.xml
+coverage.xml
+*.cover
+*.py,cover
+.hypothesis/
+.pytest_cache/
 
 # Compiled Object files
 *.slo
@@ -37,8 +74,13 @@ __pycache__
 *.pyc
 *.pyd
 
-# Compiled MATLAB
-*.mex*
+# Compiled cpp directory
+build
+
+# Executables
+*.exe
+*.out
+*.app
 
 # IPython notebook checkpoints
 .ipynb_checkpoints
@@ -49,9 +91,9 @@ __pycache__
 *.swp
 *~
 
-# Sublime Text settings
-*.sublime-workspace
-*.sublime-project
+# VS Code and other IDE settings
+*.vscode
+.idea
 
 # Generated documentation
 _site
@@ -61,6 +103,5 @@ doxygen
 *.sst
 *.ldb
 LOCK
-LOG*
 CURRENT
 MANIFEST-*
