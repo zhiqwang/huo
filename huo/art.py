@@ -54,7 +54,7 @@ def forward_propagation(img, gantry_coor_x, gantry_coor_y, view, param):
     gantry_rot_x = gantry_rot_x.unsqueeze(0).unsqueeze(3)
     gantry_rot_y = gantry_rot_y.unsqueeze(0).unsqueeze(3)
     samples = torch.cat([gantry_rot_x, gantry_rot_y], 3)
-    img_gantry_interp = F.grid_sample(img, samples)
+    img_gantry_interp = F.grid_sample(img, samples, align_corners=True)
     img_gantry_interp = img_gantry_interp.squeeze(0).squeeze(0)
     lat_step = param.img_len / param.img_pixels / param.lat_sampling
     sinogram = lat_step * torch.sum(img_gantry_interp, dim=0)
@@ -85,7 +85,7 @@ def backward_propagation(sinogram, img_end, detr_end, view, param):
     samples = samples.unsqueeze(2).unsqueeze(0)
     samples = torch.cat([torch.zeros_like(samples), samples], 3)
 
-    img = F.grid_sample(sinogram, samples)
+    img = F.grid_sample(sinogram, samples, align_corners=True)
     img = img.squeeze(0).squeeze(0)
     img = img.reshape(param.img_pixels, param.img_pixels)
 
