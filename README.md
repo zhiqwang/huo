@@ -75,7 +75,7 @@ python tools/projection.py \
 
 The script expects a `./data/sinogram.npy` file containing the measured
 sinogram. To generate a sinogram from an image instead, uncomment the
-forward-projection block in `tools/projection.py` (lines 48–54) and supply
+forward-projection block in `tools/projection.py` (lines 26–33) and supply
 a source image.
 
 See the [tutorial](docs/tutorial.md) for a detailed walk-through of every

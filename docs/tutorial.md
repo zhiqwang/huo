@@ -196,14 +196,15 @@ python tools/projection.py \
 
 The script expects `./data/sinogram.npy`. To generate a sinogram from an image
 instead, uncomment the forward-projection block in `tools/projection.py`
-(lines 48–54):
+(lines 26–33):
 
 ```python
 # Uncomment these lines for forward projection:
-# img = Image.open('./data/shepp2d.tif')
-# img = np.array(img) / 255.
+# from PIL import Image
+# img = Image.open("./data/shepp2d.tif")
+# img = np.array(img) / 255.0
 # img = torch.from_numpy(img).type(torch.FloatTensor)
-# sinogram = scan(img, gantry_coor_x, gantry_coor_y, gantry_view, param)
+# sinogram = radon.forward(img)
 ```
 
 ## Browser Demo (TypeScript)

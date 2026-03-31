@@ -55,13 +55,14 @@ class RadonFanbeam:
         self.lat_sampling = lat_sampling
 
         # Derived geometry quantities (torch-radon naming)
+        # SDD = Source-to-Detector Distance (standard CT abbreviation)
         self.sdd = source_distance + det_distance
         self.det_length = det_count * det_spacing
 
         img_step = volume_size / resolution
         self.img_end = (volume_size - img_step) / 2
 
-        det_step = self.det_length / det_count
+        det_step = self.det_length / self.det_count
         self.det_end = (self.det_length - det_step) / 2
 
         # Pre-compute gantry coordinates
