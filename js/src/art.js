@@ -191,13 +191,13 @@ export async function backprojection(sinogramData, imgEnd, detEnd, angle, param)
   //   rotX = cos*x + sin*y
   //   rotY = -sin*x + cos*y
   //
-  // Fan-beam detector mapping (normalised to [-1, 1]):
+  // Fan-beam detector mapping (normalized to [-1, 1]):
   //   detCoord = sdd * rotX / (rotY + sod / imgEnd) / detEnd
   const detPositions = new Float32Array(P * P);
 
   for (let row = 0; row < P; row++) {
     for (let col = 0; col < P; col++) {
-      // Normalised pixel coordinates in [-1, 1]
+      // Normalized pixel coordinates in [-1, 1]
       const x = -1 + (2 * col) / (P - 1);
       const y = -1 + (2 * row) / (P - 1);
 
