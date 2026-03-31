@@ -195,7 +195,10 @@ async function main() {
   // Generate phantom
   status.textContent = "Generating phantom…";
   const phantomData = createPhantom(P);
-  const phantomMax = Math.max(...phantomData);
+  let phantomMax = 0;
+  for (let i = 0; i < phantomData.length; i++) {
+    if (phantomData[i] > phantomMax) phantomMax = phantomData[i];
+  }
   renderToCanvas("phantom", phantomData, P, P);
 
   // Compute gantry geometry

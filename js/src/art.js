@@ -96,7 +96,7 @@ function randperm(n) {
 }
 
 /**
- * Forward propagation per angle.
+ * Forward projection per angle.
  *
  * Rotates the gantry coordinates by the view angle, then samples the image
  * along the rotated ray paths using bilinear interpolation. The line integral
@@ -152,7 +152,7 @@ export async function forwardProjection(img, gantryCoordX, gantryCoordY, view, p
 }
 
 /**
- * Backward propagation per angle.
+ * Backward projection per angle.
  *
  * For each pixel in the reconstruction image, computes which detector element
  * it maps to under the given view angle (using fan-beam geometry), then
