@@ -12,7 +12,8 @@ repos:
     rev: 5.0.4
     hooks:
       - id: flake8
-        args: [--config=setup.cfg]
+        additional_dependencies:
+          - Flake8-pyproject
 
   - repo: https://github.com/omnilib/ufmt
     rev: v2.0.0

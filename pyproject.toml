@@ -1,8 +1,60 @@
-[tool.usort]
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
 
+[project]
+name = "huo"
+version = "0.1.0a0"
+description = "CT Algebraic Reconstruction Technique (ART) with PyTorch"
+readme = "README.md"
+license = "GPL-3.0-only"
+requires-python = ">=3.9"
+authors = [
+    { name = "Zhiqiang Wang", email = "zhiqwang@outlook.com" },
+]
+keywords = ["scientific-computing", "computed-tomography", "image-reconstruction"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: GNU General Public License v3 (GPLv3)",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Education",
+    "Topic :: Scientific/Engineering",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "Topic :: Scientific/Engineering :: Image Recognition",
+]
+dependencies = [
+    "numpy>=1.18.5",
+]
+
+[project.scripts]
+huo-art = "huo.cli:main"
+
+[project.urls]
+Homepage = "https://github.com/zhiqwang/huo"
+"Bug Reports" = "https://github.com/zhiqwang/huo/issues"
+Source = "https://github.com/zhiqwang/huo/"
+
+[tool.hatch.build.targets.wheel]
+packages = ["huo"]
+
+[tool.usort]
 first_party_detection = false
 
 [tool.black]
-
 line-length = 110
-target-version = ["py38"]
+target-version = ["py39"]
+
+[tool.flake8]
+max-line-length = 110
+ignore = "E203, E402, W503, W504, F821"
+per-file-ignores = "__init__.py: F401, F403, F405"
+exclude = "venv"
+
+[tool.pydocstyle]
+select = ["D417"]
