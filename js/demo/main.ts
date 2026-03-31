@@ -14,13 +14,13 @@
 // Ported from tools/projection.py.
 
 import { init, numpy } from "@jax-js/jax";
-import { art, scan } from "../src/art.js";
+import { art, scan, type CTParam } from "../src/art.js";
 
 const np = numpy;
 
 // ── CT Scanner Parameters (matching the Python defaults) ─────────────────────
 
-const param = {
+const param: CTParam = {
   imgPixels: 128, // Reduced from 512 for interactive performance
   imgLen: 144, // Diameter of the FOV (mm)
   detrNum: 200, // Number of detector elements (det_count)
@@ -36,15 +36,15 @@ const param = {
 /**
  * Create a simplified Shepp-Logan-style phantom.
  *
- * @param {number} size - Image size (pixels).
- * @returns {Float32Array} Flattened phantom image data.
+ * @param size - Image size (pixels).
+ * @returns Flattened phantom image data.
  */
-function createPhantom(size) {
+function createPhantom(size: number): Float32Array {
   const data = new Float32Array(size * size);
 
   // Ellipse parameters: [centerX, centerY, semiAxisA, semiAxisB, value]
   // Coordinates are relative to image center, normalized to [0, 1].
-  const ellipses = [
+  const ellipses: [number, number, number, number, number][] = [
     [0.0, 0.0, 0.45, 0.35, 1.0], // Outer body
     [0.0, -0.015, 0.41, 0.28, -0.8], // Inner cavity
     [0.22, 0.0, 0.12, 0.21, -0.2], // Right structure
@@ -80,15 +80,21 @@ function createPhantom(size) {
 /**
  * Render a Float32Array as a grayscale image onto a canvas.
  *
- * @param {string} canvasId - DOM ID of the canvas element.
- * @param {Float32Array} data - Image data.
- * @param {number} width - Image width.
- * @param {number} height - Image height.
- * @param {number} [maxVal] - Maximum value for normalization.
+ * @param canvasId - DOM ID of the canvas element.
+ * @param data - Image data.
+ * @param width - Image width.
+ * @param height - Image height.
+ * @param maxVal - Maximum value for normalization.
  */
-function renderToCanvas(canvasId, data, width, height, maxVal) {
-  const canvas = document.getElementById(canvasId);
-  const ctx = canvas.getContext("2d");
+function renderToCanvas(
+  canvasId: string,
+  data: Float32Array,
+  width: number,
+  height: number,
+  maxVal?: number,
+): void {
+  const canvas = document.getElementById(canvasId) as HTMLCanvasElement;
+  const ctx = canvas.getContext("2d")!;
   canvas.width = width;
   canvas.height = height;
   const imageData = ctx.createImageData(width, height);
@@ -114,23 +120,31 @@ function renderToCanvas(canvasId, data, width, height, maxVal) {
 
 // ── Gantry Coordinate Computation (ported from tools/projection.py) ──────────
 
+interface GantryCoordinates {
+  gantryCoordX: numpy.Array;
+  gantryCoordY: numpy.Array;
+  imgEnd: number;
+  detrEnd: number;
+  angles: number[];
+}
+
 /**
  * Compute gantry ray-tracing coordinates for fan-beam CT geometry.
  *
  * Sets up the fan-beam source / detector geometry that is passed to both the
  * forward projection (Radon transform) and back-projection steps.
  *
- * @param {Object} param - CT geometry parameters.
- * @returns {{ gantryCoordX: np.Array, gantryCoordY: np.Array, imgEnd: number, detrEnd: number, angles: number[] }}
+ * @param param - CT geometry parameters.
+ * @returns Computed gantry coordinates and derived quantities.
  */
-function computeGantryCoordinates(param) {
+function computeGantryCoordinates(param: CTParam): GantryCoordinates {
   const imgStep = param.imgLen / param.imgPixels;
   const imgEnd = (param.imgLen - imgStep) / 2;
   const detrStep = param.detrLen / param.detrNum;
   const detrEnd = (param.detrLen - detrStep) / 2;
 
   // View angles
-  const angles = [];
+  const angles: number[] = [];
   for (let a = 0; a < 360; a += param.rotateStep) {
     angles.push(a);
   }
@@ -192,18 +206,18 @@ function computeGantryCoordinates(param) {
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 /** Read the current frame-delay value from the slider (ms). */
-function getDelay() {
-  return Number(document.getElementById("delaySlider").value);
+function getDelay(): number {
+  return Number((document.getElementById("delaySlider") as HTMLInputElement).value);
 }
 
 // ── Main ─────────────────────────────────────────────────────────────────────
 
-async function main() {
-  const status = document.getElementById("status");
-  const progress = document.getElementById("progress");
-  const startBtn = document.getElementById("startBtn");
-  const delaySlider = document.getElementById("delaySlider");
-  const delayValue = document.getElementById("delayValue");
+async function main(): Promise<void> {
+  const status = document.getElementById("status")!;
+  const progress = document.getElementById("progress") as HTMLProgressElement;
+  const startBtn = document.getElementById("startBtn") as HTMLButtonElement;
+  const delaySlider = document.getElementById("delaySlider") as HTMLInputElement;
+  const delayValue = document.getElementById("delayValue")!;
 
   // Keep the delay label in sync with the slider
   delaySlider.addEventListener("input", () => {
@@ -255,7 +269,7 @@ async function main() {
         progress.value = ((angleIdx + 1) / numAnglesTotal) * 50; // first half
         status.textContent = `Forward projection: angle ${angleIdx + 1} / ${numAnglesTotal}`;
         // Yield to the browser for rendering
-        await new Promise((r) => setTimeout(r, 0));
+        await new Promise<void>((r) => setTimeout(r, 0));
       },
       getDelay(),
     );
@@ -281,21 +295,21 @@ async function main() {
           progress.value = 50 + (iterCount / numAngles) * 50; // second half
           status.textContent = `Reconstruction: iteration ${iterCount} / ${numAngles}`;
           // Yield to the browser for rendering
-          await new Promise((r) => setTimeout(r, 0));
+          await new Promise<void>((r) => setTimeout(r, 0));
         }
       },
       getDelay(),
     );
 
     const resultData = await result.data();
-    renderToCanvas("reconstruction", resultData, P, P, phantomMax * 1.2);
+    renderToCanvas("reconstruction", resultData as Float32Array, P, P, phantomMax * 1.2);
     progress.value = 100;
     status.textContent = "Done!";
     startBtn.disabled = false;
   });
 }
 
-main().catch((err) => {
+main().catch((err: Error) => {
   console.error(err);
-  document.getElementById("status").textContent = `Error: ${err.message}`;
+  document.getElementById("status")!.textContent = `Error: ${err.message}`;
 });

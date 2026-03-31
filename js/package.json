@@ -4,10 +4,15 @@
   "description": "CT Algebraic Reconstruction Technique (ART) implemented with jax-js",
   "type": "module",
   "scripts": {
-    "dev": "npx serve ."
+    "build": "tsc",
+    "typecheck": "tsc --noEmit",
+    "dev": "tsc && npx serve ."
   },
   "dependencies": {
     "@jax-js/jax": "^0.1.10"
   },
-  "license": "GPL-3.0"
+  "license": "GPL-3.0",
+  "devDependencies": {
+    "typescript": "^6.0.2"
+  }
 }
