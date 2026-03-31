@@ -32,6 +32,9 @@ dependencies = [
     "numpy>=1.18.5",
 ]
 
+[project.scripts]
+huo-art = "huo.cli:main"
+
 [project.urls]
 Homepage = "https://github.com/zhiqwang/huo"
 "Bug Reports" = "https://github.com/zhiqwang/huo/issues"

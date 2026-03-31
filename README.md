@@ -59,11 +59,11 @@ WebGPU recommended).
 
 ### Python — CLI Reconstruction
 
-The `tools/projection.py` script loads a sinogram from a NumPy file and
-reconstructs the image using ART:
+After installing the package (`pip install -e .` or `uv pip install -e .`), the
+`huo-art` command is available system-wide:
 
 ```bash
-python tools/projection.py \
+huo-art ./data/sinogram.npy -o reconstruction.npy \
     --img-pixels 512 \
     --img-len 144 \
     --detr-num 500 \
@@ -73,10 +73,9 @@ python tools/projection.py \
     --rotate-step 1.0
 ```
 
-The script expects a `./data/sinogram.npy` file containing the measured
-sinogram. To generate a sinogram from an image instead, uncomment the
-forward-projection block in `tools/projection.py` (lines 26–33) and supply
-a source image.
+The first positional argument is the path to a `.npy` sinogram file. Use
+`-o` / `--output` to save the reconstructed image. All geometry flags are
+optional and default to the values shown above.
 
 See the [tutorial](docs/tutorial.md) for a detailed walk-through of every
 parameter and the full reconstruction pipeline.
@@ -127,9 +126,10 @@ huo/
 ├── huo/                    # Python package
 │   ├── __init__.py
 │   ├── radon.py            # RadonFanbeam class (torch-radon-style API)
-│   └── art.py              # Low-level functions (forward / backward / scan / art)
+│   ├── art.py              # Low-level functions (forward / backward / scan / art)
+│   └── cli.py              # CLI entry-point (huo-art command)
 ├── tools/
-│   └── projection.py       # CLI entry-point for reconstruction
+│   └── projection.py       # Thin wrapper → huo.cli.main
 ├── js/                     # TypeScript / browser implementation
 │   ├── src/
 │   │   └── art.ts          # Core CT algorithms (jax-js)

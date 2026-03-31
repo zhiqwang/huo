@@ -179,11 +179,12 @@ reconstructed = radon.art(sinogram)
 
 ### CLI Tool
 
-The `tools/projection.py` script wraps the full pipeline:
+After installing (`pip install -e .` or `uv pip install -e .`), the ``huo-art``
+command is available:
 
 ```bash
 # Reconstruct from an existing sinogram
-python tools/projection.py \
+huo-art ./data/sinogram.npy -o reconstruction.npy \
     --img-pixels 512 \
     --img-len 144 \
     --detr-num 500 \
@@ -194,18 +195,12 @@ python tools/projection.py \
     --rotate-step 1.0
 ```
 
-The script expects `./data/sinogram.npy`. To generate a sinogram from an image
-instead, uncomment the forward-projection block in `tools/projection.py`
-(lines 26–33):
+The first positional argument is the path to a ``.npy`` sinogram file.
+Use ``-o`` / ``--output`` to save the reconstructed image as a ``.npy`` file.
+All geometry flags are optional and default to the values shown above.
 
-```python
-# Uncomment these lines for forward projection:
-# from PIL import Image
-# img = Image.open("./data/shepp2d.tif")
-# img = np.array(img) / 255.0
-# img = torch.from_numpy(img).type(torch.FloatTensor)
-# sinogram = radon.forward(img)
-```
+You can also still run ``python tools/projection.py ./data/sinogram.npy``
+directly — it delegates to the same CLI logic.
 
 ## Browser Demo (TypeScript)
 
