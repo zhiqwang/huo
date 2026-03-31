@@ -32,10 +32,15 @@ through all angles the reconstruction is typically close to the original image.
 ```bash
 git clone https://github.com/zhiqwang/huo.git
 cd huo
+
+# with uv (recommended)
+uv pip install -e .
+
+# or with pip
 pip install -e .
 ```
 
-**Requirements:** Python ≥ 3.7, NumPy ≥ 1.18.5, PyTorch (see
+**Requirements:** Python ≥ 3.9, NumPy ≥ 1.18.5, PyTorch (see
 [pytorch.org](https://pytorch.org/get-started/locally/) for install instructions).
 
 ### TypeScript / Browser Demo
@@ -80,15 +85,33 @@ parameter and the full reconstruction pipeline.
 
 ```python
 import torch
-from huo.art import art, scan
+from huo import RadonFanbeam
 
-# art(sinogram, img_end, detr_end, gantry_coor_x, gantry_coor_y,
-#     gantry_view, param)
-#   → reconstructed image tensor [img_pixels, img_pixels]
+# Create a fan-beam CT operator (all geometry is pre-computed once)
+angles = torch.arange(0, 360, step=1.0)
+radon = RadonFanbeam(
+    resolution=512,
+    angles=angles,
+    source_distance=981,    # SOD in mm
+    det_distance=219,       # SDD − SOD in mm
+    det_count=500,
+    det_spacing=0.36,       # 180 mm / 500 elements
+    volume_size=144,        # FOV diameter in mm
+)
 
-# scan(img, gantry_coor_x, gantry_coor_y, gantry_view, param)
-#   → sinogram tensor [detr_num, num_angles]
+# Forward projection (image → sinogram)
+sinogram = radon.forward(img)       # [det_count, num_angles]
+
+# Back-projection (sinogram → image)
+bp = radon.backprojection(sinogram) # [resolution, resolution]
+
+# ART reconstruction (sinogram → image)
+reconstructed = radon.art(sinogram) # [resolution, resolution]
 ```
+
+The low-level functions in `huo.art` (``forward_propagation``,
+``backward_propagation``, ``scan``, ``art``) are still available for
+backward compatibility.
 
 ### Browser — Interactive Demo
 
@@ -103,7 +126,8 @@ animation speed so that each step can be observed.
 huo/
 ├── huo/                    # Python package
 │   ├── __init__.py
-│   └── art.py              # Core ART functions (forward / backward / scan / art)
+│   ├── radon.py            # RadonFanbeam class (torch-radon-style API)
+│   └── art.py              # Low-level functions (forward / backward / scan / art)
 ├── tools/
 │   └── projection.py       # CLI entry-point for reconstruction
 ├── js/                     # TypeScript / browser implementation
@@ -116,17 +140,28 @@ huo/
 │   └── tsconfig.json
 ├── docs/
 │   └── tutorial.md         # Usage tutorial & algorithm walk-through
-├── setup.py
-├── setup.cfg
 ├── pyproject.toml
-├── requirements.txt
 ├── LICENSE
 └── README.md
 ```
 
 ## API Overview
 
-### Python (`huo.art`)
+### Python — `RadonFanbeam` class (`huo.radon`)
+
+The recommended interface.  Follows the
+[torch-radon](https://torch-radon.readthedocs.io/en/latest/modules/radon.html)
+convention: geometry is configured once in the constructor, then ``forward`` /
+``backprojection`` / ``art`` operate on plain tensors.
+
+| Method | Description |
+|---|---|
+| `RadonFanbeam(resolution, angles, source_distance, det_distance, det_count, det_spacing, volume_size, lat_sampling)` | Constructor — pre-computes fan-beam gantry coordinates |
+| `forward(img)` | Radon transform over all angles (image → sinogram) |
+| `backprojection(sinogram)` | Back-projection over all angles (sinogram → image) |
+| `art(sinogram)` | ART iterative reconstruction (sinogram → image) |
+
+### Python — low-level functions (`huo.art`)
 
 | Function | Description |
 |---|---|

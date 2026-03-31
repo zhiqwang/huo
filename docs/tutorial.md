@@ -93,17 +93,36 @@ conventions (matching the `tools/projection.py` defaults):
 
 ### Coordinate Preparation
 
-Before running ART you need to pre-compute the gantry ray coordinates. The
-code in `tools/projection.py` shows the full procedure. In summary:
+The ``RadonFanbeam`` class pre-computes all gantry coordinates internally.
+You only need to specify the geometry once:
 
 ```python
 import torch
+from huo import RadonFanbeam
 
-# Derived quantities
-img_step  = img_len / img_pixels          # pixel spacing
-img_end   = (img_len - img_step) / 2      # half-extent of the image grid
-detr_step = detr_len / detr_num           # detector element spacing
-detr_end  = (detr_len - detr_step) / 2    # half-extent of detector grid
+angles = torch.arange(0, 360, step=1.0)
+
+radon = RadonFanbeam(
+    resolution=512,          # image pixels per axis
+    angles=angles,           # projection angles in degrees
+    source_distance=981,     # SOD — source to rotation centre (mm)
+    det_distance=219,        # rotation centre to detector (mm)
+    det_count=500,           # number of detector elements
+    det_spacing=0.36,        # detector element spacing (mm)
+    volume_size=144,         # FOV diameter (mm)
+    lat_sampling=2,          # lateral sampling multiplier
+)
+```
+
+Under the hood the constructor runs the same coordinate computation
+that was previously in ``tools/projection.py``:
+
+```python
+# Derived quantities (computed automatically)
+img_step  = volume_size / resolution
+img_end   = (volume_size - img_step) / 2
+det_step  = det_length / det_count
+det_end   = (det_length - det_step) / 2
 
 # Projection angles
 gantry_view = torch.arange(0, 360, step=rotate_step)
@@ -140,38 +159,22 @@ gantry_coor_y /= img_end
 
 ### Forward Projection (Scan)
 
-Once the gantry coordinates are ready, use `scan()` to compute a full
-sinogram from an image:
+Use ``forward()`` to compute a full sinogram from an image:
 
 ```python
-from huo.art import scan
-
-sinogram = scan(img, gantry_coor_x, gantry_coor_y, gantry_view, param)
-# sinogram shape: [detr_num, num_angles]
+sinogram = radon.forward(img)
+# sinogram shape: [det_count, num_angles]
 ```
 
-Where `img` is a `torch.Tensor` of shape `[img_pixels, img_pixels]` and
-`param` is an object (e.g. `argparse.Namespace`) with attributes `img_pixels`,
-`img_len`, `detr_num`, `detr_len`, `lat_sampling`, `sdd`, `sod`, and
-`rotate_step`.
+Where ``img`` is a ``torch.Tensor`` of shape ``[resolution, resolution]``.
 
 ### ART Reconstruction
 
 Reconstruct an image from a sinogram:
 
 ```python
-from huo.art import art
-
-reconstructed = art(
-    sinogram,       # [detr_num, num_angles]
-    img_end,        # half-extent of image grid
-    detr_end,       # half-extent of detector grid
-    gantry_coor_x,  # [lat_steps, detr_num]
-    gantry_coor_y,  # [lat_steps, detr_num]
-    gantry_view,    # 1-D tensor of angles in degrees
-    param,          # CT geometry parameters
-)
-# reconstructed shape: [img_pixels, img_pixels]
+reconstructed = radon.art(sinogram)
+# reconstructed shape: [resolution, resolution]
 ```
 
 ### CLI Tool
