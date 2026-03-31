@@ -156,7 +156,7 @@ export function rampFilter(
 
 /**
  * 1D linear interpolation for parallel beam back-projection.
- * Maps normalised positions in [-1, 1] to data indices [0, N-1].
+ * Maps normalized positions in [-1, 1] to data indices [0, N-1].
  */
 function linearInterp(
   data: Float32Array,
@@ -213,7 +213,7 @@ export async function parallelBackprojection(
 
   for (let row = 0; row < P; row++) {
     for (let col = 0; col < P; col++) {
-      // Normalised pixel coordinates in [-1, 1]
+      // Normalized pixel coordinates in [-1, 1]
       const x = -1 + (2 * col) / (P - 1);
       const y = -1 + (2 * row) / (P - 1);
 
@@ -279,7 +279,7 @@ export async function fbp(
     param.detrLen,
   );
 
-  // Initialise reconstruction to zeros
+  // Initialize reconstruction to zeros
   const imgData = new Float32Array(P * P);
 
   // Back-project all filtered projections
