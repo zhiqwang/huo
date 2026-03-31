@@ -3,7 +3,14 @@
 // Algebraic Reconstruction Technique (ART) for CT image reconstruction.
 // Ported from PyTorch (huo/art.py) to jax-js.
 //
+// Terminology follows the torch-radon convention:
+//   - forward()        : Radon transform (image → sinogram), one angle at a time
+//   - backprojection()  : back-projection (sinogram → image), one angle at a time
+//   - scan()           : full forward projection over all angles (image → complete sinogram)
+//   - art()            : iterative ART reconstruction (sinogram → image)
+//
 // References:
+//   - https://torch-radon.readthedocs.io/en/latest/
 //   - https://en.wikipedia.org/wiki/Algebraic_reconstruction_technique
 //   - https://github.com/ekzhang/jax-js
 
@@ -54,7 +61,7 @@ function bilinearSample(imgData, H, W, gridX, gridY) {
 }
 
 /**
- * 1D linear interpolation for backward projection.
+ * 1D linear interpolation for back-projection.
  * Maps normalized positions in [-1, 1] to data indices [0, N-1].
  *
  * @param {Float32Array} data - 1D data array to interpolate.
@@ -96,25 +103,28 @@ function randperm(n) {
 }
 
 /**
- * Forward projection per angle.
+ * Forward projection (Radon transform) for a single angle.
  *
- * Rotates the gantry coordinates by the view angle, then samples the image
- * along the rotated ray paths using bilinear interpolation. The line integral
- * along each ray is computed by summing across the lateral sampling direction.
+ * Computes the line integrals of the image along the ray paths defined by the
+ * fan-beam geometry at the given view angle. The gantry coordinates are rotated,
+ * the image is sampled via bilinear interpolation along each ray, and the
+ * integrals are summed across the lateral sampling direction to produce one
+ * column of the sinogram.
  *
- * Equivalent to the PyTorch implementation using F.grid_sample.
+ * Corresponds to `Radon.forward()` / `RadonFanbeam.forward()` in torch-radon,
+ * restricted to a single projection angle.
  *
- * @param {np.Array} img - 2D image [imgPixels, imgPixels].
- * @param {np.Array} gantryCoordX - Gantry X coordinates [latSteps, detrNum].
- * @param {np.Array} gantryCoordY - Gantry Y coordinates [latSteps, detrNum].
- * @param {number} view - View angle in degrees.
- * @param {Object} param - CT scan parameters.
- * @returns {Promise<np.Array>} Sinogram line for this angle [detrNum].
+ * @param {np.Array} img - 2D volume image [imgPixels, imgPixels].
+ * @param {np.Array} gantryCoordX - Gantry X coordinates [latSteps, detCount].
+ * @param {np.Array} gantryCoordY - Gantry Y coordinates [latSteps, detCount].
+ * @param {number} angle - Projection angle in degrees.
+ * @param {Object} param - CT geometry parameters.
+ * @returns {Promise<np.Array>} Sinogram column for this angle [detCount].
  */
-export async function forwardProjection(img, gantryCoordX, gantryCoordY, view, param) {
-  const viewRad = (view * Math.PI) / 180;
-  const cosV = Math.cos(viewRad);
-  const sinV = Math.sin(viewRad);
+export async function forward(img, gantryCoordX, gantryCoordY, angle, param) {
+  const angleRad = (angle * Math.PI) / 180;
+  const cosA = Math.cos(angleRad);
+  const sinA = Math.sin(angleRad);
 
   // Read raw data from jax-js arrays (.ref keeps the originals alive)
   const [imgData, gxData, gyData] = await Promise.all([
@@ -123,19 +133,19 @@ export async function forwardProjection(img, gantryCoordX, gantryCoordY, view, p
     gantryCoordY.ref.data(),
   ]);
 
-  // Rotate gantry coordinates counter-clockwise
+  // Rotate gantry coordinates counter-clockwise by the projection angle
   const N = gxData.length;
   const rotX = new Float32Array(N);
   const rotY = new Float32Array(N);
   for (let i = 0; i < N; i++) {
-    rotX[i] = gxData[i] * cosV - gyData[i] * sinV;
-    rotY[i] = gxData[i] * sinV + gyData[i] * cosV;
+    rotX[i] = gxData[i] * cosA - gyData[i] * sinA;
+    rotY[i] = gxData[i] * sinA + gyData[i] * cosA;
   }
 
-  // Sample image at rotated coordinates
+  // Sample image at rotated coordinates via bilinear interpolation
   const interp = bilinearSample(imgData, param.imgPixels, param.imgPixels, rotX, rotY);
 
-  // Sum along lateral direction to compute line integrals
+  // Sum along the lateral (ray) direction to compute line integrals
   const latSteps = param.latSampling * param.imgPixels + 1;
   const latStep = param.imgLen / param.imgPixels / param.latSampling;
   const sino = new Float32Array(param.detrNum);
@@ -152,51 +162,50 @@ export async function forwardProjection(img, gantryCoordX, gantryCoordY, view, p
 }
 
 /**
- * Backward projection per angle.
+ * Back-projection for a single angle.
  *
- * For each pixel in the reconstruction image, computes which detector element
- * it maps to under the given view angle (using fan-beam geometry), then
- * interpolates the sinogram value at that detector position.
+ * For each pixel in the reconstruction grid, computes which detector element
+ * it maps to under the given projection angle (fan-beam geometry), then
+ * interpolates the sinogram value at that detector position and distributes
+ * it back into the image.
  *
- * Equivalent to the PyTorch implementation using F.affine_grid + F.grid_sample.
+ * Corresponds to `Radon.backprojection()` in torch-radon, restricted to a
+ * single projection angle.
  *
- * @param {Float32Array} sinogramData - Sinogram data for one angle [detrNum].
- * @param {number} imgEnd - Image coordinate boundary.
- * @param {number} detrEnd - Detector coordinate boundary.
- * @param {number} view - View angle in degrees.
- * @param {Object} param - CT scan parameters.
+ * @param {Float32Array} sinogramData - Sinogram column for one angle [detCount].
+ * @param {number} imgEnd - Image coordinate boundary (half the FOV extent).
+ * @param {number} detEnd - Detector coordinate boundary (half the panel extent).
+ * @param {number} angle - Projection angle in degrees.
+ * @param {Object} param - CT geometry parameters.
  * @returns {Promise<np.Array>} Back-projected image [imgPixels, imgPixels].
  */
-export async function backwardProjection(sinogramData, imgEnd, detrEnd, view, param) {
-  const viewRad = (view * Math.PI) / 180;
-  const cosV = Math.cos(viewRad);
-  const sinV = Math.sin(viewRad);
+export async function backprojection(sinogramData, imgEnd, detEnd, angle, param) {
+  const angleRad = (angle * Math.PI) / 180;
+  const cosA = Math.cos(angleRad);
+  const sinA = Math.sin(angleRad);
   const P = param.imgPixels;
 
   // For each image pixel, compute its detector coordinate after rotation.
-  // This replaces PyTorch's F.affine_grid + F.grid_sample pipeline.
   //
-  // Rotation matrix (same as F.affine_grid theta):
+  // Rotation matrix:
   //   rotX = cos*x + sin*y
   //   rotY = -sin*x + cos*y
   //
-  // Fan-beam detector mapping:
-  //   detCoord = sdd * rotX / (rotY + sod/imgEnd) / detrEnd
+  // Fan-beam detector mapping (normalised to [-1, 1]):
+  //   detCoord = sdd * rotX / (rotY + sod / imgEnd) / detEnd
   const detPositions = new Float32Array(P * P);
 
   for (let row = 0; row < P; row++) {
     for (let col = 0; col < P; col++) {
-      // Normalized pixel coordinates in [-1, 1]
+      // Normalised pixel coordinates in [-1, 1]
       const x = -1 + (2 * col) / (P - 1);
       const y = -1 + (2 * row) / (P - 1);
 
-      // Apply rotation
-      const rotX = cosV * x + sinV * y;
-      const rotY = -sinV * x + cosV * y;
+      const rotX = cosA * x + sinA * y;
+      const rotY = -sinA * x + cosA * y;
 
-      // Compute detector coordinate (normalized by detrEnd to [-1, 1])
       const adjustedY = rotY + param.sod / imgEnd;
-      detPositions[row * P + col] = (param.sdd * rotX) / adjustedY / detrEnd;
+      detPositions[row * P + col] = (param.sdd * rotX) / adjustedY / detEnd;
     }
   }
 
@@ -207,66 +216,86 @@ export async function backwardProjection(sinogramData, imgEnd, detrEnd, view, pa
 }
 
 /**
- * CT scanning — forward projection for all view angles.
+ * Full forward projection (Radon transform) over all angles.
  *
- * Generates a complete sinogram by running forward projection at each angle.
+ * Generates a complete sinogram by running `forward()` at each projection
+ * angle.  Corresponds to calling `RadonFanbeam.forward(image)` in torch-radon.
  *
- * @param {np.Array} img - Input image [imgPixels, imgPixels].
- * @param {np.Array} gantryCoordX - Gantry X coordinates [latSteps, detrNum].
- * @param {np.Array} gantryCoordY - Gantry Y coordinates [latSteps, detrNum].
- * @param {number[]} gantryView - Array of view angles in degrees.
- * @param {Object} param - CT scan parameters.
- * @returns {Promise<np.Array>} Sinogram [detrNum, numViews].
+ * @param {np.Array} img - Input volume image [imgPixels, imgPixels].
+ * @param {np.Array} gantryCoordX - Gantry X coordinates [latSteps, detCount].
+ * @param {np.Array} gantryCoordY - Gantry Y coordinates [latSteps, detCount].
+ * @param {number[]} angles - Array of projection angles in degrees.
+ * @param {Object} param - CT geometry parameters.
+ * @param {Function} [onProgress] - Optional async callback invoked after each
+ *   angle with (sinogramData: Float32Array, detCount: number, numAngles: number, angleIdx: number).
+ * @param {number} [delay=0] - Minimum delay in ms between consecutive angles.
+ *   Useful for slowing down the visualisation so each projection frame is visible.
+ * @returns {Promise<np.Array>} Sinogram [detCount, numAngles].
  */
-export async function scan(img, gantryCoordX, gantryCoordY, gantryView, param) {
-  const numViews = gantryView.length;
-  // Store sinogram in [detrNum, numViews] layout (column per view)
-  const sinoData = new Float32Array(param.detrNum * numViews);
+export async function scan(img, gantryCoordX, gantryCoordY, angles, param, onProgress, delay = 0) {
+  const numAngles = angles.length;
+  // Store sinogram in [detCount, numAngles] layout (one column per angle)
+  const sinoData = new Float32Array(param.detrNum * numAngles);
 
-  for (let i = 0; i < numViews; i++) {
-    const sino = await forwardProjection(img, gantryCoordX, gantryCoordY, gantryView[i], param);
+  for (let i = 0; i < numAngles; i++) {
+    const sino = await forward(img, gantryCoordX, gantryCoordY, angles[i], param);
     // data() returns the typed array and disposes the jax-js array
     const data = await sino.data();
     for (let j = 0; j < param.detrNum; j++) {
-      sinoData[j * numViews + i] = data[j];
+      sinoData[j * numAngles + i] = data[j];
+    }
+
+    if (onProgress) {
+      await onProgress(sinoData, param.detrNum, numAngles, i);
+    }
+
+    if (delay > 0) {
+      await new Promise((r) => setTimeout(r, delay));
     }
   }
 
-  return np.array(sinoData).reshape([param.detrNum, numViews]);
+  return np.array(sinoData).reshape([param.detrNum, numAngles]);
 }
 
 /**
  * Algebraic Reconstruction Technique (ART).
  *
  * Iteratively reconstructs a CT image from sinogram data by processing one
- * view angle at a time in random order. For each view:
- *   1. Forward project the current estimate to predict the sinogram.
- *   2. Compute the residual (measured - predicted).
+ * projection angle at a time in random order (Kaczmarz method).  For each angle:
+ *   1. Forward-project the current estimate to predict the sinogram column.
+ *   2. Compute the residual (measured − predicted).
  *   3. Back-project the residual to update the image estimate.
  *   4. Clamp negative values to zero.
  *
- * @param {np.Array} sinogram - Sinogram data [detrNum, numViews].
- * @param {number} imgEnd - Image coordinate boundary.
- * @param {number} detrEnd - Detector coordinate boundary.
- * @param {np.Array} gantryCoordX - Gantry X coordinates [latSteps, detrNum].
- * @param {np.Array} gantryCoordY - Gantry Y coordinates [latSteps, detrNum].
- * @param {number[]} gantryView - Array of view angles in degrees.
- * @param {Object} param - CT scan parameters.
- * @param {Function} [onProgress] - Async callback for visualization updates.
- *   Called with (imgData: Float32Array, imgSize: number, viewIdx: number).
+ * This is a classical iterative CT reconstruction algorithm.  See also:
+ *   - https://en.wikipedia.org/wiki/Algebraic_reconstruction_technique
+ *   - torch-radon documentation for forward / backprojection terminology.
+ *
+ * @param {np.Array} sinogram - Measured sinogram [detCount, numAngles].
+ * @param {number} imgEnd - Image coordinate boundary (half the FOV extent).
+ * @param {number} detEnd - Detector coordinate boundary (half the panel extent).
+ * @param {np.Array} gantryCoordX - Gantry X coordinates [latSteps, detCount].
+ * @param {np.Array} gantryCoordY - Gantry Y coordinates [latSteps, detCount].
+ * @param {number[]} angles - Array of projection angles in degrees.
+ * @param {Object} param - CT geometry parameters.
+ * @param {Function} [onProgress] - Optional async callback for visualisation.
+ *   Called with (imgData: Float32Array, imgSize: number, angleIdx: number).
+ * @param {number} [delay=0] - Minimum delay in ms between consecutive angles.
+ *   Useful for slowing down the visualisation so each reconstruction frame is visible.
  * @returns {Promise<np.Array>} Reconstructed image [imgPixels, imgPixels].
  */
 export async function art(
   sinogram,
   imgEnd,
-  detrEnd,
+  detEnd,
   gantryCoordX,
   gantryCoordY,
-  gantryView,
+  angles,
   param,
   onProgress,
+  delay = 0,
 ) {
-  const numViews = gantryView.length;
+  const numAngles = angles.length;
   const P = param.imgPixels;
 
   // Initialize reconstruction to zeros
@@ -275,36 +304,36 @@ export async function art(
   // Read sinogram data (.ref keeps the original alive)
   const fullSinoData = await sinogram.ref.data();
 
-  // Process views in random order (Kaczmarz method)
-  const indices = randperm(numViews);
+  // Process angles in random order (Kaczmarz method)
+  const indices = randperm(numAngles);
 
   for (const idx of indices) {
-    const view = gantryView[idx];
+    const angle = angles[idx];
 
     // Create jax-js array for current image estimate
     const img = np.array(imgData).reshape([P, P]);
 
-    // Forward project current estimate
-    const fp = await forwardProjection(img, gantryCoordX, gantryCoordY, view, param);
+    // Forward-project current estimate
+    const fp = await forward(img, gantryCoordX, gantryCoordY, angle, param);
     const fpData = await fp.data();
 
-    // Extract measured sinogram column for this view
+    // Extract measured sinogram column for this angle
     const sinoCol = new Float32Array(param.detrNum);
     for (let j = 0; j < param.detrNum; j++) {
-      sinoCol[j] = fullSinoData[j * numViews + idx];
+      sinoCol[j] = fullSinoData[j * numAngles + idx];
     }
 
-    // Compute residual: (measured - predicted) / imgLen
+    // Compute residual: (measured − predicted) / imgLen
     const resData = new Float32Array(param.detrNum);
     for (let j = 0; j < param.detrNum; j++) {
       resData[j] = (sinoCol[j] - fpData[j]) / param.imgLen;
     }
 
     // Back-project residual into image space
-    const bp = await backwardProjection(resData, imgEnd, detrEnd, view, param);
+    const bp = await backprojection(resData, imgEnd, detEnd, angle, param);
     const bpData = await bp.data();
 
-    // Update image estimate: img += backprojection, then clamp to [0, +inf)
+    // Update image estimate: img += back-projection, then clamp to [0, +∞)
     for (let i = 0; i < P * P; i++) {
       imgData[i] = Math.max(0, imgData[i] + bpData[i]);
     }
@@ -312,9 +341,13 @@ export async function art(
     // Dispose the temporary image array
     img.dispose();
 
-    // Notify progress for visualization
+    // Notify progress for visualisation
     if (onProgress) {
       await onProgress(imgData, P, idx);
+    }
+
+    if (delay > 0) {
+      await new Promise((r) => setTimeout(r, delay));
     }
   }
 

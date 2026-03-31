@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>CT ART Reconstruction — jax-js</title>
+    <title>CT Radon Transform &amp; ART Reconstruction — jax-js</title>
     <style>
       * {
         box-sizing: border-box;
@@ -57,6 +57,7 @@
         align-items: center;
         gap: 16px;
         flex-wrap: wrap;
+        margin-bottom: 12px;
       }
       button {
         background: #3b82f6;
@@ -94,15 +95,32 @@
         background: #3b82f6;
         border-radius: 4px;
       }
+      label {
+        font-size: 0.9rem;
+        color: #aaa;
+      }
+      input[type="range"] {
+        width: 120px;
+        accent-color: #3b82f6;
+      }
+      .delay-value {
+        display: inline-block;
+        min-width: 46px;
+        text-align: right;
+        font-variant-numeric: tabular-nums;
+      }
     </style>
   </head>
   <body>
-    <h1>CT Image Reconstruction (ART)</h1>
+    <h1>CT Radon Transform &amp; ART Reconstruction</h1>
     <p class="subtitle">
-      Algebraic Reconstruction Technique · Implemented with
+      Forward projection (Radon transform) · Back-projection · ART iterative reconstruction
+      · Powered by
       <a href="https://github.com/ekzhang/jax-js" target="_blank">jax-js</a>
       · Ported from
       <a href="https://github.com/zhiqwang/huo" target="_blank">huo</a>
+      · Terminology follows
+      <a href="https://torch-radon.readthedocs.io/en/latest/" target="_blank">torch-radon</a>
     </p>
 
     <div class="panels">
@@ -111,19 +129,26 @@
         <canvas id="phantom" width="256" height="256"></canvas>
       </div>
       <div class="panel">
-        <h3>Sinogram</h3>
+        <h3>Sinogram (Forward Projection)</h3>
         <canvas id="sinogram" width="360" height="256"></canvas>
       </div>
       <div class="panel">
-        <h3>Reconstruction</h3>
+        <h3>Reconstruction (ART)</h3>
         <canvas id="reconstruction" width="256" height="256"></canvas>
       </div>
     </div>
 
     <div class="controls">
-      <button id="startBtn" disabled>Start Reconstruction</button>
+      <button id="startBtn" disabled>Start</button>
       <progress id="progress" value="0" max="100"></progress>
       <span id="status">Loading…</span>
+    </div>
+    <div class="controls">
+      <label>
+        Frame delay:
+        <input id="delaySlider" type="range" min="0" max="200" value="20" step="5" />
+        <span id="delayValue" class="delay-value">20 ms</span>
+      </label>
     </div>
 
     <script type="importmap">

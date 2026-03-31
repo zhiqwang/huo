@@ -1,8 +1,15 @@
 // Copyright (c) 2022, Zhiqiang Wang. All rights reserved.
 //
-// Demo: CT ART reconstruction with interactive visualization.
-// Generates a phantom image, forward-projects it to create a sinogram,
-// then reconstructs the image using the ART algorithm with live canvas updates.
+// Demo: CT forward projection (Radon transform) and ART reconstruction with
+// interactive, frame-by-frame visualisation.
+//
+// Generates a phantom image, forward-projects it angle-by-angle to create a
+// sinogram (with live canvas updates), then reconstructs the image using the
+// ART algorithm — again with live canvas updates.
+//
+// Terminology follows the torch-radon convention:
+//   forward()       → Radon transform  (image → sinogram)
+//   backprojection() → inverse Radon   (sinogram → image)
 //
 // Ported from tools/projection.py.
 
@@ -16,12 +23,12 @@ const np = numpy;
 const param = {
   imgPixels: 128, // Reduced from 512 for interactive performance
   imgLen: 144, // Diameter of the FOV (mm)
-  detrNum: 200, // Number of detector elements
+  detrNum: 200, // Number of detector elements (det_count)
   detrLen: 180, // Detector panel length (mm)
   latSampling: 2, // Lateral sampling grid multiplier
   sdd: 1200, // Source-to-detector distance (mm)
   sod: 981, // Source-to-object distance (mm)
-  rotateStep: 2, // Rotation step (degrees); 360/2 = 180 views
+  rotateStep: 2, // Rotation step (degrees); 360/2 = 180 angles
 };
 
 // ── Phantom Generation ───────────────────────────────────────────────────────
@@ -110,8 +117,11 @@ function renderToCanvas(canvasId, data, width, height, maxVal) {
 /**
  * Compute gantry ray-tracing coordinates for fan-beam CT geometry.
  *
- * @param {Object} param - CT scanner parameters.
- * @returns {{ gantryCoordX: np.Array, gantryCoordY: np.Array, imgEnd: number, detrEnd: number, gantryView: number[] }}
+ * Sets up the fan-beam source / detector geometry that is passed to both the
+ * forward projection (Radon transform) and back-projection steps.
+ *
+ * @param {Object} param - CT geometry parameters.
+ * @returns {{ gantryCoordX: np.Array, gantryCoordY: np.Array, imgEnd: number, detrEnd: number, angles: number[] }}
  */
 function computeGantryCoordinates(param) {
   const imgStep = param.imgLen / param.imgPixels;
@@ -120,9 +130,9 @@ function computeGantryCoordinates(param) {
   const detrEnd = (param.detrLen - detrStep) / 2;
 
   // View angles
-  const gantryView = [];
+  const angles = [];
   for (let a = 0; a < 360; a += param.rotateStep) {
-    gantryView.push(a);
+    angles.push(a);
   }
 
   // X-ray source is on the top vertical axis at (0, -sod)
@@ -176,7 +186,14 @@ function computeGantryCoordinates(param) {
   const gantryCoordX = np.array(gantryCoordXData).reshape([latSteps, param.detrNum]);
   const gantryCoordY = np.array(gantryCoordYData).reshape([latSteps, param.detrNum]);
 
-  return { gantryCoordX, gantryCoordY, imgEnd, detrEnd, gantryView };
+  return { gantryCoordX, gantryCoordY, imgEnd, detrEnd, angles };
+}
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
+
+/** Read the current frame-delay value from the slider (ms). */
+function getDelay() {
+  return Number(document.getElementById("delaySlider").value);
 }
 
 // ── Main ─────────────────────────────────────────────────────────────────────
@@ -185,6 +202,13 @@ async function main() {
   const status = document.getElementById("status");
   const progress = document.getElementById("progress");
   const startBtn = document.getElementById("startBtn");
+  const delaySlider = document.getElementById("delaySlider");
+  const delayValue = document.getElementById("delayValue");
+
+  // Keep the delay label in sync with the slider
+  delaySlider.addEventListener("input", () => {
+    delayValue.textContent = `${delaySlider.value} ms`;
+  });
 
   // Initialize jax-js backend
   status.textContent = "Initializing jax-js…";
@@ -202,33 +226,44 @@ async function main() {
   renderToCanvas("phantom", phantomData, P, P);
 
   // Compute gantry geometry
-  status.textContent = "Computing gantry geometry…";
-  const { gantryCoordX, gantryCoordY, imgEnd, detrEnd, gantryView } =
+  status.textContent = "Computing fan-beam geometry…";
+  const { gantryCoordX, gantryCoordY, imgEnd, detrEnd, angles } =
     computeGantryCoordinates(param);
-  const numViews = gantryView.length;
+  const numAngles = angles.length;
 
-  // Forward project phantom to create sinogram
-  status.textContent = "Forward projecting (scanning)…";
-  await new Promise((r) => setTimeout(r, 0));
-
-  const phantomImg = np.array(phantomData).reshape([P, P]);
-  const sinogram = await scan(phantomImg, gantryCoordX, gantryCoordY, gantryView, param);
-  phantomImg.dispose();
-
-  // Display sinogram
-  const sinoDisplayData = await sinogram.ref.data();
-  renderToCanvas("sinogram", sinoDisplayData, numViews, param.detrNum);
-
-  status.textContent = "Ready — click to reconstruct";
+  status.textContent = "Ready — click Start";
   startBtn.disabled = false;
 
-  // Reconstruction button handler
+  // ── Run button handler ────────────────────────────────────────────────────
   startBtn.addEventListener("click", async () => {
     startBtn.disabled = true;
-    status.textContent = "Reconstructing…";
+
+    // ── Phase 1: Forward projection (Radon transform), frame by frame ─────
+    status.textContent = "Forward projection (angle 0)…";
     progress.value = 0;
 
-    let viewCount = 0;
+    const phantomImg = np.array(phantomData).reshape([P, P]);
+    const sinogram = await scan(
+      phantomImg,
+      gantryCoordX,
+      gantryCoordY,
+      angles,
+      param,
+      // onProgress — render the sinogram as it is being built
+      async (sinoData, detCount, numAnglesTotal, angleIdx) => {
+        renderToCanvas("sinogram", sinoData, numAnglesTotal, detCount);
+        progress.value = ((angleIdx + 1) / numAnglesTotal) * 50; // first half
+        status.textContent = `Forward projection: angle ${angleIdx + 1} / ${numAnglesTotal}`;
+        // Yield to the browser for rendering
+        await new Promise((r) => setTimeout(r, 0));
+      },
+      getDelay(),
+    );
+    phantomImg.dispose();
+
+    // ── Phase 2: ART reconstruction, frame by frame ───────────────────────
+    status.textContent = "Reconstructing (ART)…";
+    let iterCount = 0;
 
     const result = await art(
       sinogram,
@@ -236,25 +271,26 @@ async function main() {
       detrEnd,
       gantryCoordX,
       gantryCoordY,
-      gantryView,
+      angles,
       param,
-      async (imgData, size, _viewIdx) => {
-        viewCount++;
+      async (imgData, size, _angleIdx) => {
+        iterCount++;
         // Update canvas periodically to show reconstruction progress
-        if (viewCount % 5 === 0 || viewCount === numViews) {
+        if (iterCount % 5 === 0 || iterCount === numAngles) {
           renderToCanvas("reconstruction", imgData, size, size, phantomMax * 1.2);
-          progress.value = (viewCount / numViews) * 100;
-          status.textContent = `View ${viewCount} / ${numViews}`;
+          progress.value = 50 + (iterCount / numAngles) * 50; // second half
+          status.textContent = `Reconstruction: iteration ${iterCount} / ${numAngles}`;
           // Yield to the browser for rendering
           await new Promise((r) => setTimeout(r, 0));
         }
       },
+      getDelay(),
     );
 
     const resultData = await result.data();
     renderToCanvas("reconstruction", resultData, P, P, phantomMax * 1.2);
     progress.value = 100;
-    status.textContent = "Reconstruction complete!";
+    status.textContent = "Done!";
     startBtn.disabled = false;
   });
 }
