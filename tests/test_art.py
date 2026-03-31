@@ -107,7 +107,9 @@ class TestForwardPropagation:
         result_90 = forward_propagation(
             img, gantry_coords.gantry_coor_x, gantry_coords.gantry_coor_y, 90.0, small_param
         )
-        # For a uniform image, total projection mass should be roughly the same
+        # For a uniform image, total projection mass should be roughly the same.
+        # A 30% tolerance accounts for discretization artifacts at different angles
+        # where the square grid aligns differently with the fan-beam rays.
         assert abs(result_0.sum().item() - result_90.sum().item()) / max(result_0.sum().item(), 1e-8) < 0.3
 
 
@@ -418,8 +420,11 @@ class TestProjectionCoordinates:
         coords = self._compute_coordinates(small_param)
         # Coordinates in the FOV region should be in [-1, 1] range for grid_sample
         center_y = coords.gantry_coor_y[coords.gantry_coor_y.shape[0] // 2, :]
-        # Not all coordinates are in [-1, 1], but center should be reasonable
-        assert center_y.abs().max().item() < 20.0  # sanity check: not absurdly large
+        # Coordinates in the FOV region should be in [-1, 1] range for grid_sample.
+        # The center row y-coordinates extend beyond [-1, 1] due to fan-beam geometry
+        # (source-to-object distance >> FOV), but should stay within a reasonable
+        # range proportional to sod/img_end (≈ 981/67.5 ≈ 14.5 for default params).
+        assert center_y.abs().max().item() < 20.0
 
     def test_default_params(self):
         """Verify default parameter values from argparse in projection.py."""
