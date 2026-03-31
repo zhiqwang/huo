@@ -1,7 +1,18 @@
 # Custom
 data-bin
+node_modules/
 checkpoints
 logs
+
+# TypeScript compiled output (js/ directory)
+js/src/*.js
+js/src/*.js.map
+js/src/*.d.ts
+js/src/*.d.ts.map
+js/demo/*.js
+js/demo/*.js.map
+js/demo/*.d.ts
+js/demo/*.d.ts.map
 *.ipynb
 runs
 huo/version.py
