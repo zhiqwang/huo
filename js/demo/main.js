@@ -1,0 +1,262 @@
+// Copyright (c) 2022, Zhiqiang Wang. All rights reserved.
+//
+// Demo: CT ART reconstruction with interactive visualization.
+// Generates a phantom image, forward-projects it to create a sinogram,
+// then reconstructs the image using the ART algorithm with live canvas updates.
+//
+// Ported from tools/projection.py.
+
+import { init, numpy } from "@jax-js/jax";
+import { art, scan } from "../src/art.js";
+
+const np = numpy;
+
+// ── CT Scanner Parameters (matching the Python defaults) ─────────────────────
+
+const param = {
+  imgPixels: 128, // Reduced from 512 for interactive performance
+  imgLen: 144, // Diameter of the FOV (mm)
+  detrNum: 200, // Number of detector elements
+  detrLen: 180, // Detector panel length (mm)
+  latSampling: 2, // Lateral sampling grid multiplier
+  sdd: 1200, // Source-to-detector distance (mm)
+  sod: 981, // Source-to-object distance (mm)
+  rotateStep: 2, // Rotation step (degrees); 360/2 = 180 views
+};
+
+// ── Phantom Generation ───────────────────────────────────────────────────────
+
+/**
+ * Create a simplified Shepp-Logan-style phantom.
+ *
+ * @param {number} size - Image size (pixels).
+ * @returns {Float32Array} Flattened phantom image data.
+ */
+function createPhantom(size) {
+  const data = new Float32Array(size * size);
+
+  // Ellipse parameters: [centerX, centerY, semiAxisA, semiAxisB, value]
+  // Coordinates are relative to image center, normalized to [0, 1].
+  const ellipses = [
+    [0.0, 0.0, 0.45, 0.35, 1.0], // Outer body
+    [0.0, -0.015, 0.41, 0.28, -0.8], // Inner cavity
+    [0.22, 0.0, 0.12, 0.21, -0.2], // Right structure
+    [-0.22, 0.0, 0.16, 0.21, -0.2], // Left structure
+    [0.0, 0.25, 0.046, 0.046, 0.3], // Top feature
+    [0.0, -0.25, 0.046, 0.046, 0.3], // Bottom feature
+    [0.06, -0.08, 0.024, 0.03, 0.2], // Small detail 1
+    [-0.06, -0.08, 0.024, 0.03, 0.2], // Small detail 2
+  ];
+
+  for (const [ecx, ecy, ea, eb, ev] of ellipses) {
+    for (let row = 0; row < size; row++) {
+      for (let col = 0; col < size; col++) {
+        const dx = (col / size - 0.5 - ecx) / ea;
+        const dy = (row / size - 0.5 - ecy) / eb;
+        if (dx * dx + dy * dy <= 1) {
+          data[row * size + col] += ev;
+        }
+      }
+    }
+  }
+
+  // Clamp to non-negative
+  for (let i = 0; i < data.length; i++) {
+    data[i] = Math.max(0, data[i]);
+  }
+
+  return data;
+}
+
+// ── Canvas Rendering ─────────────────────────────────────────────────────────
+
+/**
+ * Render a Float32Array as a grayscale image onto a canvas.
+ *
+ * @param {string} canvasId - DOM ID of the canvas element.
+ * @param {Float32Array} data - Image data.
+ * @param {number} width - Image width.
+ * @param {number} height - Image height.
+ * @param {number} [maxVal] - Maximum value for normalization.
+ */
+function renderToCanvas(canvasId, data, width, height, maxVal) {
+  const canvas = document.getElementById(canvasId);
+  const ctx = canvas.getContext("2d");
+  canvas.width = width;
+  canvas.height = height;
+  const imageData = ctx.createImageData(width, height);
+
+  if (maxVal == null) {
+    maxVal = 0;
+    for (let i = 0; i < data.length; i++) {
+      if (data[i] > maxVal) maxVal = data[i];
+    }
+  }
+  if (maxVal === 0) maxVal = 1;
+
+  for (let i = 0; i < data.length; i++) {
+    const v = Math.min(255, Math.max(0, Math.floor((data[i] / maxVal) * 255)));
+    imageData.data[i * 4] = v;
+    imageData.data[i * 4 + 1] = v;
+    imageData.data[i * 4 + 2] = v;
+    imageData.data[i * 4 + 3] = 255;
+  }
+
+  ctx.putImageData(imageData, 0, 0);
+}
+
+// ── Gantry Coordinate Computation (ported from tools/projection.py) ──────────
+
+/**
+ * Compute gantry ray-tracing coordinates for fan-beam CT geometry.
+ *
+ * @param {Object} param - CT scanner parameters.
+ * @returns {{ gantryCoordX: np.Array, gantryCoordY: np.Array, imgEnd: number, detrEnd: number, gantryView: number[] }}
+ */
+function computeGantryCoordinates(param) {
+  const imgStep = param.imgLen / param.imgPixels;
+  const imgEnd = (param.imgLen - imgStep) / 2;
+  const detrStep = param.detrLen / param.detrNum;
+  const detrEnd = (param.detrLen - detrStep) / 2;
+
+  // View angles
+  const gantryView = [];
+  for (let a = 0; a < 360; a += param.rotateStep) {
+    gantryView.push(a);
+  }
+
+  // X-ray source is on the top vertical axis at (0, -sod)
+  const srcCoordY = -param.sod;
+
+  // Detector coordinates
+  const detrCoordX = new Float32Array(param.detrNum);
+  const detrCoordY = new Float32Array(param.detrNum);
+  for (let i = 0; i < param.detrNum; i++) {
+    detrCoordX[i] = -detrEnd + (i * (2 * detrEnd)) / (param.detrNum - 1);
+    detrCoordY[i] = param.sdd - param.sod;
+  }
+
+  // Lateral grid along each ray
+  const latEnd = param.imgLen / 2;
+  const latSteps = param.latSampling * param.imgPixels + 1;
+  const latGrid = new Float32Array(latSteps);
+  for (let i = 0; i < latSteps; i++) {
+    latGrid[i] = -latEnd + (i * (2 * latEnd)) / (latSteps - 1);
+    latGrid[i] -= srcCoordY; // Move origin up to X-ray source
+  }
+
+  // Adjust detector Y coordinates
+  for (let i = 0; i < param.detrNum; i++) {
+    detrCoordY[i] -= srcCoordY;
+  }
+
+  // Fan-beam distance for each detector element
+  const fand = new Float32Array(param.detrNum);
+  for (let i = 0; i < param.detrNum; i++) {
+    fand[i] = Math.sqrt(detrCoordX[i] ** 2 + detrCoordY[i] ** 2);
+  }
+
+  // Gantry coordinates [latSteps, detrNum]
+  const gantryCoordXData = new Float32Array(latSteps * param.detrNum);
+  const gantryCoordYData = new Float32Array(latSteps * param.detrNum);
+  for (let k = 0; k < latSteps; k++) {
+    for (let j = 0; j < param.detrNum; j++) {
+      gantryCoordXData[k * param.detrNum + j] = (latGrid[k] * detrCoordX[j]) / fand[j];
+      gantryCoordYData[k * param.detrNum + j] =
+        (latGrid[k] * detrCoordY[j]) / fand[j] + srcCoordY;
+    }
+  }
+
+  // Normalize to [-1, 1] by image extent
+  for (let i = 0; i < gantryCoordXData.length; i++) {
+    gantryCoordXData[i] /= imgEnd;
+    gantryCoordYData[i] /= imgEnd;
+  }
+
+  const gantryCoordX = np.array(gantryCoordXData).reshape([latSteps, param.detrNum]);
+  const gantryCoordY = np.array(gantryCoordYData).reshape([latSteps, param.detrNum]);
+
+  return { gantryCoordX, gantryCoordY, imgEnd, detrEnd, gantryView };
+}
+
+// ── Main ─────────────────────────────────────────────────────────────────────
+
+async function main() {
+  const status = document.getElementById("status");
+  const progress = document.getElementById("progress");
+  const startBtn = document.getElementById("startBtn");
+
+  // Initialize jax-js backend
+  status.textContent = "Initializing jax-js…";
+  await init();
+
+  const P = param.imgPixels;
+
+  // Generate phantom
+  status.textContent = "Generating phantom…";
+  const phantomData = createPhantom(P);
+  const phantomMax = Math.max(...phantomData);
+  renderToCanvas("phantom", phantomData, P, P);
+
+  // Compute gantry geometry
+  status.textContent = "Computing gantry geometry…";
+  const { gantryCoordX, gantryCoordY, imgEnd, detrEnd, gantryView } =
+    computeGantryCoordinates(param);
+  const numViews = gantryView.length;
+
+  // Forward project phantom to create sinogram
+  status.textContent = "Forward projecting (scanning)…";
+  await new Promise((r) => setTimeout(r, 0));
+
+  const phantomImg = np.array(phantomData).reshape([P, P]);
+  const sinogram = await scan(phantomImg, gantryCoordX, gantryCoordY, gantryView, param);
+  phantomImg.dispose();
+
+  // Display sinogram
+  const sinoDisplayData = await sinogram.ref.data();
+  renderToCanvas("sinogram", sinoDisplayData, numViews, param.detrNum);
+
+  status.textContent = "Ready — click to reconstruct";
+  startBtn.disabled = false;
+
+  // Reconstruction button handler
+  startBtn.addEventListener("click", async () => {
+    startBtn.disabled = true;
+    status.textContent = "Reconstructing…";
+    progress.value = 0;
+
+    let viewCount = 0;
+
+    const result = await art(
+      sinogram,
+      imgEnd,
+      detrEnd,
+      gantryCoordX,
+      gantryCoordY,
+      gantryView,
+      param,
+      async (imgData, size, _viewIdx) => {
+        viewCount++;
+        // Update canvas periodically to show reconstruction progress
+        if (viewCount % 5 === 0 || viewCount === numViews) {
+          renderToCanvas("reconstruction", imgData, size, size, phantomMax * 1.2);
+          progress.value = (viewCount / numViews) * 100;
+          status.textContent = `View ${viewCount} / ${numViews}`;
+          // Yield to the browser for rendering
+          await new Promise((r) => setTimeout(r, 0));
+        }
+      },
+    );
+
+    const resultData = await result.data();
+    renderToCanvas("reconstruction", resultData, P, P, phantomMax * 1.2);
+    progress.value = 100;
+    status.textContent = "Reconstruction complete!";
+    startBtn.disabled = false;
+  });
+}
+
+main().catch((err) => {
+  console.error(err);
+  document.getElementById("status").textContent = `Error: ${err.message}`;
+});

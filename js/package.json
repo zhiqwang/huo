@@ -1,0 +1,13 @@
+{
+  "name": "huo-art-js",
+  "version": "0.1.0",
+  "description": "CT Algebraic Reconstruction Technique (ART) implemented with jax-js",
+  "type": "module",
+  "scripts": {
+    "dev": "npx serve ."
+  },
+  "dependencies": {
+    "@jax-js/jax": "^0.1.10"
+  },
+  "license": "GPL-3.0"
+}

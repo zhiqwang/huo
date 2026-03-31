@@ -1,5 +1,6 @@
 # Custom
 data-bin
+node_modules/
 checkpoints
 logs
 *.ipynb
