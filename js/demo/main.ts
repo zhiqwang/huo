@@ -1,11 +1,11 @@
 // Copyright (c) 2022, Zhiqiang Wang. All rights reserved.
 //
-// Demo: CT forward projection (Radon transform) and ART reconstruction with
+// Demo: CT forward projection (Radon transform) and reconstruction with
 // interactive, frame-by-frame visualisation.
 //
 // Generates a phantom image, forward-projects it angle-by-angle to create a
-// sinogram (with live canvas updates), then reconstructs the image using the
-// ART algorithm — again with live canvas updates.
+// sinogram (with live canvas updates), then reconstructs the image using
+// either ART (fan-beam) or FBP (parallel-beam) — with live canvas updates.
 //
 // Terminology follows the torch-radon convention:
 //   forward()       → Radon transform  (image → sinogram)
@@ -15,6 +15,7 @@
 
 import { init, numpy } from "@jax-js/jax";
 import { art, scan, type CTParam } from "../src/art.js";
+import { fbp } from "../src/fbp.js";
 
 const np = numpy;
 
@@ -203,6 +204,54 @@ function computeGantryCoordinates(param: CTParam): GantryCoordinates {
   return { gantryCoordX, gantryCoordY, imgEnd, detrEnd, angles };
 }
 
+/**
+ * Compute gantry ray-tracing coordinates for parallel beam CT geometry.
+ *
+ * For parallel beam, all rays at a given angle are parallel.  The gantry
+ * coordinates are simply the detector positions (x) and the lateral
+ * sampling positions (y), both normalised by the image extent.
+ *
+ * Angles cover [0°, 180°) because parallel beam projections at θ and
+ * θ + 180° carry redundant information.
+ *
+ * @param param - CT geometry parameters.
+ * @returns Computed gantry coordinates and derived quantities.
+ */
+function computeParallelGantryCoordinates(param: CTParam): GantryCoordinates {
+  const imgStep = param.imgLen / param.imgPixels;
+  const imgEnd = (param.imgLen - imgStep) / 2;
+  const detrStep = param.detrLen / param.detrNum;
+  const detrEnd = (param.detrLen - detrStep) / 2;
+
+  // For parallel beam, use half-rotation [0, 180°)
+  const angles: number[] = [];
+  for (let a = 0; a < 180; a += param.rotateStep) {
+    angles.push(a);
+  }
+
+  // Lateral grid
+  const latEnd = param.imgLen / 2;
+  const latSteps = param.latSampling * param.imgPixels + 1;
+
+  // For parallel beam: x = detector position, y = lateral position
+  const gantryCoordXData = new Float32Array(latSteps * param.detrNum);
+  const gantryCoordYData = new Float32Array(latSteps * param.detrNum);
+
+  for (let k = 0; k < latSteps; k++) {
+    const s = -latEnd + (k * (2 * latEnd)) / (latSteps - 1);
+    for (let j = 0; j < param.detrNum; j++) {
+      const t = -detrEnd + (j * (2 * detrEnd)) / (param.detrNum - 1);
+      gantryCoordXData[k * param.detrNum + j] = t / imgEnd;
+      gantryCoordYData[k * param.detrNum + j] = s / imgEnd;
+    }
+  }
+
+  const gantryCoordX = np.array(gantryCoordXData).reshape([latSteps, param.detrNum]);
+  const gantryCoordY = np.array(gantryCoordYData).reshape([latSteps, param.detrNum]);
+
+  return { gantryCoordX, gantryCoordY, imgEnd, detrEnd, angles };
+}
+
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 /** Read the current frame-delay value from the slider (ms). */
@@ -218,10 +267,18 @@ async function main(): Promise<void> {
   const startBtn = document.getElementById("startBtn") as HTMLButtonElement;
   const delaySlider = document.getElementById("delaySlider") as HTMLInputElement;
   const delayValue = document.getElementById("delayValue")!;
+  const methodSelect = document.getElementById("methodSelect") as HTMLSelectElement;
+  const reconLabel = document.getElementById("reconLabel")!;
 
   // Keep the delay label in sync with the slider
   delaySlider.addEventListener("input", () => {
     delayValue.textContent = `${delaySlider.value} ms`;
+  });
+
+  // Update reconstruction label when method changes
+  methodSelect.addEventListener("change", () => {
+    reconLabel.textContent =
+      methodSelect.value === "fbp" ? "Reconstruction (FBP)" : "Reconstruction (ART)";
   });
 
   // Initialize jax-js backend
@@ -239,18 +296,25 @@ async function main(): Promise<void> {
   }
   renderToCanvas("phantom", phantomData, P, P);
 
-  // Compute gantry geometry
-  status.textContent = "Computing fan-beam geometry…";
-  const { gantryCoordX, gantryCoordY, imgEnd, detrEnd, angles } =
-    computeGantryCoordinates(param);
-  const numAngles = angles.length;
-
   status.textContent = "Ready — click Start";
   startBtn.disabled = false;
 
-  // ── Run button handler ────────────────────────────────────────────────────
+  // ── Run button handler ────────────────────────────────────────────────────────────
   startBtn.addEventListener("click", async () => {
     startBtn.disabled = true;
+    const method = methodSelect.value; // "art" or "fbp"
+
+    // Compute geometry for the selected method
+    const isParallel = method === "fbp";
+    status.textContent = isParallel
+      ? "Computing parallel-beam geometry…"
+      : "Computing fan-beam geometry…";
+    const { gantryCoordX, gantryCoordY, imgEnd, detrEnd, angles } = isParallel
+      ? computeParallelGantryCoordinates(param)
+      : computeGantryCoordinates(param);
+    const numAngles = angles.length;
+
+    reconLabel.textContent = isParallel ? "Reconstruction (FBP)" : "Reconstruction (ART)";
 
     // ── Phase 1: Forward projection (Radon transform), frame by frame ─────
     status.textContent = "Forward projection (angle 0)…";
@@ -275,34 +339,61 @@ async function main(): Promise<void> {
     );
     phantomImg.dispose();
 
-    // ── Phase 2: ART reconstruction, frame by frame ───────────────────────
-    status.textContent = "Reconstructing (ART)…";
-    let iterCount = 0;
+    // ── Phase 2: Reconstruction ─────────────────────────────────────────────────────
+    if (isParallel) {
+      // ── FBP reconstruction ────────────────────────────────────────────────────────
+      status.textContent = "Reconstructing (FBP)…";
+      let iterCount = 0;
 
-    const result = await art(
-      sinogram,
-      imgEnd,
-      detrEnd,
-      gantryCoordX,
-      gantryCoordY,
-      angles,
-      param,
-      async (imgData, size, _angleIdx) => {
-        iterCount++;
-        // Update canvas periodically to show reconstruction progress
-        if (iterCount % 5 === 0 || iterCount === numAngles) {
-          renderToCanvas("reconstruction", imgData, size, size, phantomMax * 1.2);
-          progress.value = 50 + (iterCount / numAngles) * 50; // second half
-          status.textContent = `Reconstruction: iteration ${iterCount} / ${numAngles}`;
-          // Yield to the browser for rendering
-          await new Promise<void>((r) => setTimeout(r, 0));
-        }
-      },
-      getDelay(),
-    );
+      const result = await fbp(
+        sinogram,
+        imgEnd,
+        detrEnd,
+        angles,
+        param,
+        async (imgData, size, _angleIdx) => {
+          iterCount++;
+          if (iterCount % 5 === 0 || iterCount === numAngles) {
+            renderToCanvas("reconstruction", imgData, size, size, phantomMax * 1.2);
+            progress.value = 50 + (iterCount / numAngles) * 50;
+            status.textContent = `FBP reconstruction: angle ${iterCount} / ${numAngles}`;
+            await new Promise<void>((r) => setTimeout(r, 0));
+          }
+        },
+        getDelay(),
+      );
 
-    const resultData = await result.data();
-    renderToCanvas("reconstruction", resultData as Float32Array, P, P, phantomMax * 1.2);
+      const resultData = await result.data();
+      renderToCanvas("reconstruction", resultData as Float32Array, P, P, phantomMax * 1.2);
+    } else {
+      // ── ART reconstruction ────────────────────────────────────────────────────────
+      status.textContent = "Reconstructing (ART)…";
+      let iterCount = 0;
+
+      const result = await art(
+        sinogram,
+        imgEnd,
+        detrEnd,
+        gantryCoordX,
+        gantryCoordY,
+        angles,
+        param,
+        async (imgData, size, _angleIdx) => {
+          iterCount++;
+          if (iterCount % 5 === 0 || iterCount === numAngles) {
+            renderToCanvas("reconstruction", imgData, size, size, phantomMax * 1.2);
+            progress.value = 50 + (iterCount / numAngles) * 50;
+            status.textContent = `Reconstruction: iteration ${iterCount} / ${numAngles}`;
+            await new Promise<void>((r) => setTimeout(r, 0));
+          }
+        },
+        getDelay(),
+      );
+
+      const resultData = await result.data();
+      renderToCanvas("reconstruction", resultData as Float32Array, P, P, phantomMax * 1.2);
+    }
+
     progress.value = 100;
     status.textContent = "Done!";
     startBtn.disabled = false;

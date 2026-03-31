@@ -73,3 +73,27 @@ def gantry_coords(small_param):
         img_end=img_end,
         detr_end=detr_end,
     )
+
+
+@pytest.fixture
+def parallel_coords(small_param):
+    """Compute parallel beam geometry coordinates for the small_param fixture.
+
+    For parallel beam the gantry views cover [0, 180) and the
+    sinogram is generated using the same ``scan`` helper as fan-beam
+    but with parallel gantry coordinates (detector × lateral grid).
+    """
+    param = small_param
+    img_step = param.img_len / param.img_pixels
+    img_end = (param.img_len - img_step) / 2
+    detr_step = param.detr_len / param.detr_num
+    detr_end = (param.detr_len - detr_step) / 2
+
+    # Parallel beam: half rotation
+    gantry_view = torch.arange(0, 180, step=param.rotate_step)
+
+    return types.SimpleNamespace(
+        gantry_view=gantry_view,
+        img_end=img_end,
+        detr_end=detr_end,
+    )
