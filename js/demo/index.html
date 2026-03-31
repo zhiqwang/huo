@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>CT Radon Transform &amp; ART Reconstruction — jax-js</title>
+    <title>CT Radon Transform &amp; Reconstruction — jax-js</title>
     <style>
       * {
         box-sizing: border-box;
@@ -99,6 +99,14 @@
         font-size: 0.9rem;
         color: #aaa;
       }
+      select {
+        background: #2a2d37;
+        color: #e0e0e0;
+        border: 1px solid #555;
+        padding: 6px 10px;
+        border-radius: 4px;
+        font-size: 0.9rem;
+      }
       input[type="range"] {
         width: 120px;
         accent-color: #3b82f6;
@@ -112,9 +120,9 @@
     </style>
   </head>
   <body>
-    <h1>CT Radon Transform &amp; ART Reconstruction</h1>
+    <h1>CT Radon Transform &amp; Reconstruction</h1>
     <p class="subtitle">
-      Forward projection (Radon transform) · Back-projection · ART iterative reconstruction
+      Forward projection (Radon transform) · Back-projection · ART / FBP reconstruction
       · Powered by
       <a href="https://github.com/ekzhang/jax-js" target="_blank">jax-js</a>
       · Ported from
@@ -133,13 +141,20 @@
         <canvas id="sinogram" width="360" height="256"></canvas>
       </div>
       <div class="panel">
-        <h3>Reconstruction (ART)</h3>
+        <h3 id="reconLabel">Reconstruction</h3>
         <canvas id="reconstruction" width="256" height="256"></canvas>
       </div>
     </div>
 
     <div class="controls">
       <button id="startBtn" disabled>Start</button>
+      <label>
+        Method:
+        <select id="methodSelect">
+          <option value="art">Fan-beam ART</option>
+          <option value="fbp">Parallel-beam FBP</option>
+        </select>
+      </label>
       <progress id="progress" value="0" max="100"></progress>
       <span id="status">Loading…</span>
     </div>
