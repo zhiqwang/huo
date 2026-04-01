@@ -67,11 +67,17 @@ class TestRadonForwardAutograd:
         sinogram = radon.forward(img)
         sinogram.sum().backward()
 
-        # Explicit backprojection of all-ones (since grad of sum w.r.t. sinogram is ones)
+        # Compute expected backprojection of all-ones manually
+        # (since grad of sum w.r.t. sinogram is ones)
         ones_sinogram = torch.ones_like(sinogram)
-        bp = radon.backprojection(ones_sinogram)
+        P = radon.resolution
+        expected = torch.zeros(P, P)
+        ones_4d = ones_sinogram.unsqueeze(0).unsqueeze(0)
+        for i, angle in enumerate(radon.angles):
+            col = ones_4d[:, :, :, i]
+            expected += radon._backprojection_angle(col, angle.item())
 
-        assert torch.allclose(img.grad, bp, atol=1e-5)
+        assert torch.allclose(img.grad, expected, atol=1e-5)
 
     def test_grad_with_weighted_loss(self, radon):
         """Gradients should scale correctly with a weighted loss."""
@@ -80,10 +86,16 @@ class TestRadonForwardAutograd:
         loss = (2.0 * sinogram).sum()
         loss.backward()
 
+        # Compute expected backprojection of all-ones manually
         ones_sinogram = torch.ones_like(sinogram)
-        bp = radon.backprojection(ones_sinogram)
+        P = radon.resolution
+        expected = torch.zeros(P, P)
+        ones_4d = ones_sinogram.unsqueeze(0).unsqueeze(0)
+        for i, angle in enumerate(radon.angles):
+            col = ones_4d[:, :, :, i]
+            expected += radon._backprojection_angle(col, angle.item())
 
-        assert torch.allclose(img.grad, 2.0 * bp, atol=1e-5)
+        assert torch.allclose(img.grad, 2.0 * expected, atol=1e-5)
 
     def test_no_grad_when_not_required(self, radon):
         """forward() should not track gradients when input does not require them."""

@@ -51,11 +51,11 @@ class RadonFanbeam:
 
     Follows the `torch-radon <https://torch-radon.readthedocs.io/en/latest/>`_
     convention where ``forward`` means Radon transform (image → sinogram) and
-    ``backprojection`` means sinogram → image.
+    the backward pass (backprojection) is handled automatically by
+    :class:`_RadonForward`.
 
     The constructor pre-computes all fan-beam gantry coordinates so that
-    :meth:`forward`, :meth:`backprojection`, and :meth:`art` only need the
-    image or sinogram tensor.
+    :meth:`forward` and :meth:`art` only need the image or sinogram tensor.
 
     Args:
         resolution: Number of image pixels along each axis.
@@ -216,8 +216,8 @@ class RadonFanbeam:
         Corresponds to ``RadonFanbeam.forward`` in torch-radon.
 
         This method is backed by :class:`_RadonForward`, a custom
-        :class:`torch.autograd.Function` whose ``backward`` pass is the
-        :meth:`backprojection` operation.  When *img* has
+        :class:`torch.autograd.Function` whose ``backward`` pass performs the
+        backprojection (adjoint of the forward projection).  When *img* has
         ``requires_grad=True``, calling ``.backward()`` on the returned
         sinogram will compute the gradient via backprojection.
 
@@ -228,27 +228,6 @@ class RadonFanbeam:
             Sinogram tensor ``[det_count, num_angles]``.
         """
         return _RadonForward.apply(img, self)
-
-    def backprojection(self, sinogram: Tensor) -> Tensor:
-        """Back-projection (sinogram → image) summed over all angles.
-
-        Corresponds to ``RadonFanbeam.backprojection`` in torch-radon.
-
-        Args:
-            sinogram: Sinogram tensor ``[det_count, num_angles]``.
-
-        Returns:
-            Image tensor ``[resolution, resolution]``.
-        """
-        P = self.resolution
-        img = torch.zeros(P, P)
-        sinogram_4d = sinogram.unsqueeze(0).unsqueeze(0)
-
-        for i, angle in enumerate(self.angles):
-            col = sinogram_4d[:, :, :, i]
-            img += self._backprojection_angle(col, angle.item())
-
-        return img
 
     def art(self, sinogram: Tensor) -> Tensor:
         """Algebraic Reconstruction Technique (ART).
