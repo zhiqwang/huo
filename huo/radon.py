@@ -24,7 +24,7 @@ class _RadonForward(torch.autograd.Function):
     def forward(ctx, img: Tensor, radon: "RadonFanbeam") -> Tensor:
         ctx.radon = radon
         num_angles = len(radon.angles)
-        sinogram = torch.zeros(radon.det_count, num_angles, dtype=img.dtype)
+        sinogram = torch.zeros(radon.det_count, num_angles, dtype=img.dtype, device=img.device)
         sinogram = sinogram.unsqueeze(0).unsqueeze(0)
 
         for i, angle in enumerate(radon.angles):
@@ -36,7 +36,7 @@ class _RadonForward(torch.autograd.Function):
     def backward(ctx, grad_sinogram: Tensor):
         radon = ctx.radon
         P = radon.resolution
-        grad_img = torch.zeros(P, P, dtype=grad_sinogram.dtype)
+        grad_img = torch.zeros(P, P, dtype=grad_sinogram.dtype, device=grad_sinogram.device)
         sinogram_4d = grad_sinogram.unsqueeze(0).unsqueeze(0)
 
         for i, angle in enumerate(radon.angles):
