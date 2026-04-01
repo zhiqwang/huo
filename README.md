@@ -102,10 +102,10 @@ radon = RadonFanbeam(
 sinogram = radon.forward(img)       # [det_count, num_angles]
 
 # Back-projection via autograd (sinogram → image)
-img_bp = torch.zeros(512, 512, requires_grad=True)
-sinogram = radon.forward(img_bp)
+img_input = torch.rand(512, 512, requires_grad=True)
+sinogram = radon.forward(img_input)
 sinogram.sum().backward()
-bp = img_bp.grad                    # [resolution, resolution]
+bp = img_input.grad                 # [resolution, resolution]
 
 # ART reconstruction (sinogram → image)
 reconstructed = radon.art(sinogram) # [resolution, resolution]

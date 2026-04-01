@@ -86,7 +86,8 @@ class TestRadonForwardAutograd:
         loss = (2.0 * sinogram).sum()
         loss.backward()
 
-        # Compute expected backprojection of all-ones manually
+        # Compute expected backprojection of all-ones, then scale by 2.0
+        # (grad of (2*sinogram).sum() w.r.t. sinogram is 2*ones)
         ones_sinogram = torch.ones_like(sinogram)
         P = radon.resolution
         expected = torch.zeros(P, P)
