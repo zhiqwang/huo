@@ -14,13 +14,13 @@
 // Ported from tools/projection.py.
 
 import { init, numpy } from "@jax-js/jax";
-import { art, scan, type CTParam } from "../src/art.js";
+import { art, scan, RaysCfg } from "../src/art.js";
 
 const np = numpy;
 
 // ── CT Scanner Parameters (matching the Python defaults) ─────────────────────
 
-const param: CTParam = {
+const param = new RaysCfg({
   imgPixels: 128, // Reduced from 512 for interactive performance
   imgLen: 144, // Diameter of the FOV (mm)
   detrNum: 200, // Number of detector elements (det_count)
@@ -29,7 +29,7 @@ const param: CTParam = {
   sdd: 1200, // Source-to-detector distance (mm)
   sod: 981, // Source-to-object distance (mm)
   rotateStep: 2, // Rotation step (degrees); 360/2 = 180 angles
-};
+});
 
 // ── Phantom Generation ───────────────────────────────────────────────────────
 
@@ -137,7 +137,7 @@ interface GantryCoordinates {
  * @param param - CT geometry parameters.
  * @returns Computed gantry coordinates and derived quantities.
  */
-function computeGantryCoordinates(param: CTParam): GantryCoordinates {
+function computeGantryCoordinates(param: RaysCfg): GantryCoordinates {
   const imgStep = param.imgLen / param.imgPixels;
   const imgEnd = (param.imgLen - imgStep) / 2;
   const detrStep = param.detrLen / param.detrNum;
