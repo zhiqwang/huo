@@ -350,6 +350,18 @@ export async function art(
   // Initialize reconstruction to zeros
   let img = np.zeros([P, P]);
 
+  // Build the gradient function once, outside the loop.
+  // loss(img, rotX, rotY, measured) = 0.5 * ||forward(img) - measured||^2
+  // grad w.r.t. img (argnums: 0) gives J^T @ (forward(img) - measured).
+  const gradFn = grad(
+    (imgArg: numpy.Array, rotXArg: numpy.Array, rotYArg: numpy.Array, measuredArg: numpy.Array) => {
+      const predicted = _forwardAngle(imgArg, rotXArg, rotYArg, param);
+      const diff = np.subtract(predicted, measuredArg);
+      return np.sum(np.square(diff)).mul(0.5);
+    },
+    { argnums: 0 },
+  );
+
   // Process angles in random order (Kaczmarz method)
   const indices = randperm(numAngles);
 
@@ -370,25 +382,7 @@ export async function art(
       angle,
     );
 
-    // Compute gradient of the squared-error loss via grad().
-    //
-    // loss(img) = 0.5 * sum((forward(img) - measured)^2)
-    // grad(loss)(img) = J^T @ (forward(img) - measured)
-    //
-    // The ART update is: img -= grad / imgLen, then clamp.
-    // This is equivalent to: img += J^T @ (measured - forward(img)) / imgLen
-    //
-    // rotX, rotY, measured are passed as extra arguments so that grad()
-    // manages their lifecycle.  Only the first argument (argnums: 0)
-    // is differentiated; the rest are treated as constants.
-    const gradFn = grad(
-      (imgArg: numpy.Array, rotXArg: numpy.Array, rotYArg: numpy.Array, measuredArg: numpy.Array) => {
-        const predicted = _forwardAngle(imgArg, rotXArg, rotYArg, param);
-        const diff = np.subtract(predicted, measuredArg);
-        return np.sum(np.square(diff)).mul(0.5);
-      },
-      { argnums: 0 },
-    );
+    // Compute the gradient (backprojection of the residual)
     const gradImg = gradFn(img.ref, rotX, rotY, measured);
 
     // ART update: img = max(0, img - grad / imgLen)
