@@ -233,12 +233,14 @@ you to slow down or speed up the visualisation.
 
 ### TypeScript API
 
-The core functions in `packages/src/art.ts` mirror the Python API:
+The core functions in `packages/src/art.ts` mirror the Python API.
+Backprojection is computed automatically via jax-js `grad()`:
 
 ```typescript
-import { forward, backprojection, scan, art, type CTParam } from "./art.js";
+import { forward, scan, art, RaysCfg } from "./art.js";
+import { grad, numpy as np } from "@jax-js/jax";
 
-const param: CTParam = {
+const param = new RaysCfg({
   imgPixels: 128,
   imgLen: 144,
   detrNum: 200,
@@ -247,20 +249,20 @@ const param: CTParam = {
   sdd: 1200,
   sod: 981,
   rotateStep: 2,
-};
+});
 
-// Forward projection for one angle
-const sinoCol = await forward(img, gantryCoordX, gantryCoordY, angle, param);
+// Forward projection for one angle (differentiable)
+const sinoCol = forward(img, gantryCoordX, gantryCoordY, angle, param);
 
-// Back-projection for one angle
-const bpImg = await backprojection(sinoData, imgEnd, detEnd, angle, param);
+// Backprojection via grad (gradient of sum(forward(img)))
+const bp = grad((img) => np.sum(forward(img, gantryCoordX, gantryCoordY, angle, param)));
 
 // Full forward projection → sinogram
 const sinogram = await scan(img, gantryCoordX, gantryCoordY, angles, param);
 
-// ART reconstruction → image
+// ART reconstruction → image (uses grad() internally)
 const reconstructed = await art(
-  sinogram, imgEnd, detEnd, gantryCoordX, gantryCoordY, angles, param,
+  sinogram, gantryCoordX, gantryCoordY, angles, param,
 );
 ```
 

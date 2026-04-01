@@ -101,8 +101,11 @@ radon = RadonFanbeam(
 # Forward projection (image → sinogram)
 sinogram = radon.forward(img)       # [det_count, num_angles]
 
-# Back-projection (sinogram → image)
-bp = radon.backprojection(sinogram) # [resolution, resolution]
+# Back-projection via autograd (sinogram → image)
+img_input = torch.rand(512, 512, requires_grad=True)
+sinogram = radon.forward(img_input)
+sinogram.sum().backward()
+bp = img_input.grad                 # [resolution, resolution]
 
 # ART reconstruction (sinogram → image)
 reconstructed = radon.art(sinogram) # [resolution, resolution]
@@ -152,13 +155,13 @@ huo/
 The recommended interface.  Follows the
 [torch-radon](https://torch-radon.readthedocs.io/en/latest/modules/radon.html)
 convention: geometry is configured once in the constructor, then ``forward`` /
-``backprojection`` / ``art`` operate on plain tensors.
+``art`` operate on plain tensors.  Backprojection is available as the
+autograd backward pass of ``forward``.
 
 | Method | Description |
 |---|---|
 | `RadonFanbeam(resolution, angles, source_distance, det_distance, det_count, det_spacing, volume_size, lat_sampling)` | Constructor — pre-computes fan-beam gantry coordinates |
-| `forward(img)` | Radon transform over all angles (image → sinogram) |
-| `backprojection(sinogram)` | Back-projection over all angles (sinogram → image) |
+| `forward(img)` | Radon transform over all angles (image → sinogram). Backprojection is the autograd backward pass. |
 | `art(sinogram)` | ART iterative reconstruction (sinogram → image) |
 
 ### Python — low-level functions (`huo.art`)
@@ -174,10 +177,9 @@ convention: geometry is configured once in the constructor, then ``forward`` /
 
 | Function | Description |
 |---|---|
-| `forward(img, gantryCoordX, gantryCoordY, angle, param)` | Radon transform for one angle |
-| `backprojection(sinogramData, imgEnd, detEnd, angle, param)` | Back-projection for one angle |
+| `forward(img, gantryCoordX, gantryCoordY, angle, param)` | Radon transform for one angle. Differentiable — backprojection is computed via `grad()`. |
 | `scan(img, gantryCoordX, gantryCoordY, angles, param, ...)` | Full forward projection → sinogram |
-| `art(sinogram, imgEnd, detEnd, gantryCoordX, gantryCoordY, angles, param, ...)` | ART reconstruction → image |
+| `art(sinogram, gantryCoordX, gantryCoordY, angles, param, ...)` | ART reconstruction → image (uses `grad()` for backprojection) |
 
 Terminology follows the [torch-radon](https://torch-radon.readthedocs.io/en/latest/) convention.
 
