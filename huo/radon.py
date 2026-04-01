@@ -12,6 +12,40 @@ import torch.nn.functional as F
 from torch import Tensor
 
 
+class _RadonForward(torch.autograd.Function):
+    """Custom autograd Function pairing forward projection with backprojection.
+
+    The *forward* pass performs the Radon transform (image → sinogram) and
+    the *backward* pass performs the backprojection (sinogram → image),
+    which is the adjoint of the forward projection.
+    """
+
+    @staticmethod
+    def forward(ctx, img: Tensor, radon: "RadonFanbeam") -> Tensor:
+        ctx.radon = radon
+        num_angles = len(radon.angles)
+        sinogram = torch.zeros(radon.det_count, num_angles, dtype=img.dtype)
+        sinogram = sinogram.unsqueeze(0).unsqueeze(0)
+
+        for i, angle in enumerate(radon.angles):
+            sinogram[:, :, :, i] = radon._forward_angle(img, angle.item())
+
+        return sinogram.squeeze(0).squeeze(0)
+
+    @staticmethod
+    def backward(ctx, grad_sinogram: Tensor):
+        radon = ctx.radon
+        P = radon.resolution
+        grad_img = torch.zeros(P, P, dtype=grad_sinogram.dtype)
+        sinogram_4d = grad_sinogram.unsqueeze(0).unsqueeze(0)
+
+        for i, angle in enumerate(radon.angles):
+            col = sinogram_4d[:, :, :, i]
+            grad_img += radon._backprojection_angle(col, angle.item())
+
+        return grad_img, None
+
+
 class RadonFanbeam:
     """Fan-beam CT forward / back-projection.
 
@@ -181,20 +215,19 @@ class RadonFanbeam:
 
         Corresponds to ``RadonFanbeam.forward`` in torch-radon.
 
+        This method is backed by :class:`_RadonForward`, a custom
+        :class:`torch.autograd.Function` whose ``backward`` pass is the
+        :meth:`backprojection` operation.  When *img* has
+        ``requires_grad=True``, calling ``.backward()`` on the returned
+        sinogram will compute the gradient via backprojection.
+
         Args:
             img: 2-D image tensor ``[resolution, resolution]``.
 
         Returns:
             Sinogram tensor ``[det_count, num_angles]``.
         """
-        num_angles = len(self.angles)
-        sinogram = torch.zeros(self.det_count, num_angles)
-        sinogram = sinogram.unsqueeze(0).unsqueeze(0)
-
-        for i, angle in enumerate(self.angles):
-            sinogram[:, :, :, i] = self._forward_angle(img, angle.item())
-
-        return sinogram.squeeze(0).squeeze(0)
+        return _RadonForward.apply(img, self)
 
     def backprojection(self, sinogram: Tensor) -> Tensor:
         """Back-projection (sinogram → image) summed over all angles.
