@@ -5,11 +5,13 @@ import types
 import pytest
 import torch
 
+from huo.cfg import RaysCfg
+
 
 @pytest.fixture
 def small_param():
     """Small CT geometry parameters for fast tests."""
-    return types.SimpleNamespace(
+    return RaysCfg(
         img_pixels=16,
         img_len=144.0,
         detr_num=20,
@@ -24,7 +26,7 @@ def small_param():
 @pytest.fixture
 def medium_param():
     """Medium CT geometry parameters for integration tests."""
-    return types.SimpleNamespace(
+    return RaysCfg(
         img_pixels=32,
         img_len=144.0,
         detr_num=50,

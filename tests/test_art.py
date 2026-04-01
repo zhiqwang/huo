@@ -7,6 +7,7 @@ import pytest
 import torch
 
 from huo.art import art, backward_propagation, forward_propagation, scan
+from huo.cfg import RaysCfg
 
 
 class TestForwardPropagation:
@@ -428,7 +429,7 @@ class TestProjectionCoordinates:
 
     def test_default_params(self):
         """Verify default parameter values from argparse in projection.py."""
-        param = types.SimpleNamespace(
+        param = RaysCfg(
             img_pixels=512,
             img_len=144.0,
             detr_num=500,

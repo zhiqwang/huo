@@ -18,24 +18,48 @@ import { numpy } from "@jax-js/jax";
 
 const np = numpy;
 
-/** CT geometry parameters used by the forward / back-projection routines. */
-export interface CTParam {
+/** CT geometry parameters used by the forward / back-projection routines.
+ *
+ * Immutable configuration inspired by ``RaysCfg`` in
+ * [torch-radon](https://github.com/matteo-ronchetti/torch-radon).
+ */
+export class RaysCfg {
   /** Number of image pixels along each axis. */
-  imgPixels: number;
+  readonly imgPixels: number;
   /** Diameter of the field of view (mm). */
-  imgLen: number;
+  readonly imgLen: number;
   /** Number of detector elements. */
-  detrNum: number;
+  readonly detrNum: number;
   /** Detector panel length (mm). */
-  detrLen: number;
+  readonly detrLen: number;
   /** Lateral sampling grid multiplier. */
-  latSampling: number;
+  readonly latSampling: number;
   /** Source-to-detector distance (mm). */
-  sdd: number;
+  readonly sdd: number;
   /** Source-to-object distance (mm). */
-  sod: number;
+  readonly sod: number;
   /** Rotation step in degrees. */
-  rotateStep: number;
+  readonly rotateStep: number;
+
+  constructor(cfg: {
+    imgPixels: number;
+    imgLen: number;
+    detrNum: number;
+    detrLen: number;
+    latSampling: number;
+    sdd: number;
+    sod: number;
+    rotateStep: number;
+  }) {
+    this.imgPixels = cfg.imgPixels;
+    this.imgLen = cfg.imgLen;
+    this.detrNum = cfg.detrNum;
+    this.detrLen = cfg.detrLen;
+    this.latSampling = cfg.latSampling;
+    this.sdd = cfg.sdd;
+    this.sod = cfg.sod;
+    this.rotateStep = cfg.rotateStep;
+  }
 }
 
 /**
@@ -157,7 +181,7 @@ export async function forward(
   gantryCoordX: numpy.Array,
   gantryCoordY: numpy.Array,
   angle: number,
-  param: CTParam,
+  param: RaysCfg,
 ): Promise<numpy.Array> {
   const angleRad = (angle * Math.PI) / 180;
   const cosA = Math.cos(angleRad);
@@ -227,7 +251,7 @@ export async function backprojection(
   imgEnd: number,
   detEnd: number,
   angle: number,
-  param: CTParam,
+  param: RaysCfg,
 ): Promise<numpy.Array> {
   const angleRad = (angle * Math.PI) / 180;
   const cosA = Math.cos(angleRad);
@@ -300,7 +324,7 @@ export async function scan(
   gantryCoordX: numpy.Array,
   gantryCoordY: numpy.Array,
   angles: number[],
-  param: CTParam,
+  param: RaysCfg,
   onProgress?: ScanProgressCallback,
   delay = 0,
 ): Promise<numpy.Array> {
@@ -361,7 +385,7 @@ export async function art(
   gantryCoordX: numpy.Array,
   gantryCoordY: numpy.Array,
   angles: number[],
-  param: CTParam,
+  param: RaysCfg,
   onProgress?: ArtProgressCallback,
   delay = 0,
 ): Promise<numpy.Array> {
