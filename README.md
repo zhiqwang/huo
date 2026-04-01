@@ -177,10 +177,9 @@ autograd backward pass of ``forward``.
 
 | Function | Description |
 |---|---|
-| `forward(img, gantryCoordX, gantryCoordY, angle, param)` | Radon transform for one angle |
-| `backprojection(sinogramData, imgEnd, detEnd, angle, param)` | Back-projection for one angle |
+| `forward(img, gantryCoordX, gantryCoordY, angle, param)` | Radon transform for one angle. Differentiable — backprojection is computed via `grad()`. |
 | `scan(img, gantryCoordX, gantryCoordY, angles, param, ...)` | Full forward projection → sinogram |
-| `art(sinogram, imgEnd, detEnd, gantryCoordX, gantryCoordY, angles, param, ...)` | ART reconstruction → image |
+| `art(sinogram, gantryCoordX, gantryCoordY, angles, param, ...)` | ART reconstruction → image (uses `grad()` for backprojection) |
 
 Terminology follows the [torch-radon](https://torch-radon.readthedocs.io/en/latest/) convention.
 
