@@ -377,17 +377,19 @@ export async function art(
     //
     // The ART update is: img -= grad / imgLen, then clamp.
     // This is equivalent to: img += J^T @ (measured - forward(img)) / imgLen
-    const gradFn = grad((imgArg: numpy.Array) => {
-      const predicted = _forwardAngle(imgArg, rotX.ref, rotY.ref, param);
-      const diff = np.subtract(predicted, measured.ref);
-      return np.sum(np.square(diff)).mul(0.5);
-    });
-    const gradImg = gradFn(img.ref);
-
-    // Dispose pre-computed arrays
-    rotX.dispose();
-    rotY.dispose();
-    measured.dispose();
+    //
+    // rotX, rotY, measured are passed as extra arguments so that grad()
+    // manages their lifecycle.  Only the first argument (argnums: 0)
+    // is differentiated; the rest are treated as constants.
+    const gradFn = grad(
+      (imgArg: numpy.Array, rotXArg: numpy.Array, rotYArg: numpy.Array, measuredArg: numpy.Array) => {
+        const predicted = _forwardAngle(imgArg, rotXArg, rotYArg, param);
+        const diff = np.subtract(predicted, measuredArg);
+        return np.sum(np.square(diff)).mul(0.5);
+      },
+      { argnums: 0 },
+    );
+    const gradImg = gradFn(img.ref, rotX, rotY, measured);
 
     // ART update: img = max(0, img - grad / imgLen)
     img = np.maximum(np.subtract(img, np.multiply(gradImg, 1.0 / param.imgLen)), 0);
@@ -402,11 +404,6 @@ export async function art(
       await new Promise<void>((r) => setTimeout(r, delay));
     }
   }
-
-  // Dispose borrowed arrays
-  sinogram.dispose();
-  gantryCoordX.dispose();
-  gantryCoordY.dispose();
 
   return img;
 }
