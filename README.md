@@ -46,7 +46,7 @@ pip install -e .
 ### TypeScript / Browser Demo
 
 ```bash
-cd js
+cd packages
 npm install
 npm run build
 npx serve .
@@ -130,7 +130,7 @@ huo/
 │   └── cli.py              # CLI entry-point (huo-art command)
 ├── tools/
 │   └── projection.py       # Thin wrapper → huo.cli.main
-├── js/                     # TypeScript / browser implementation
+├── packages/               # TypeScript / browser implementation
 │   ├── src/
 │   │   └── art.ts          # Core CT algorithms (jax-js)
 │   ├── demo/
@@ -170,7 +170,7 @@ convention: geometry is configured once in the constructor, then ``forward`` /
 | `scan(img, gantry_coor_x, gantry_coor_y, gantry_view, param)` | Full forward projection over all angles → sinogram |
 | `art(sinogram, img_end, detr_end, gantry_coor_x, gantry_coor_y, gantry_view, param)` | ART iterative reconstruction → image |
 
-### TypeScript (`js/src/art.ts`)
+### TypeScript (`packages/src/art.ts`)
 
 | Function | Description |
 |---|---|
