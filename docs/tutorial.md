@@ -204,13 +204,13 @@ directly — it delegates to the same CLI logic.
 
 ## Browser Demo (TypeScript)
 
-The TypeScript implementation in `js/` provides an interactive, in-browser
+The TypeScript implementation in `packages/` provides an interactive, in-browser
 visualisation of both forward projection and ART reconstruction.
 
 ### Running the Demo
 
 ```bash
-cd js
+cd packages
 npm install
 npm run build
 npx serve .
@@ -233,7 +233,7 @@ you to slow down or speed up the visualisation.
 
 ### TypeScript API
 
-The core functions in `js/src/art.ts` mirror the Python API:
+The core functions in `packages/src/art.ts` mirror the Python API:
 
 ```typescript
 import { forward, backprojection, scan, art, type CTParam } from "./art.js";

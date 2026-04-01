@@ -4,15 +4,15 @@ node_modules/
 checkpoints
 logs
 
-# TypeScript compiled output (js/ directory)
-js/src/*.js
-js/src/*.js.map
-js/src/*.d.ts
-js/src/*.d.ts.map
-js/demo/*.js
-js/demo/*.js.map
-js/demo/*.d.ts
-js/demo/*.d.ts.map
+# TypeScript compiled output (packages/ directory)
+packages/src/*.js
+packages/src/*.js.map
+packages/src/*.d.ts
+packages/src/*.d.ts.map
+packages/demo/*.js
+packages/demo/*.js.map
+packages/demo/*.d.ts
+packages/demo/*.d.ts.map
 *.ipynb
 runs
 huo/version.py
