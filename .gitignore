@@ -108,6 +108,8 @@ build
 
 # Generated documentation
 _site
+site/
+.venv-docs/
 doxygen
 
 # LevelDB files
