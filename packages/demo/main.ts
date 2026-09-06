@@ -9,7 +9,7 @@
 //
 // Terminology follows the torch-radon convention:
 //   forward()       → Radon transform  (image → sinogram)
-//   backprojection() → inverse Radon   (sinogram → image)
+//   grad(forward)   → backprojection   (sinogram → image, via autodiff)
 //
 // Ported from tools/projection.py.
 
@@ -123,8 +123,6 @@ function renderToCanvas(
 interface GantryCoordinates {
   gantryCoordX: numpy.Array;
   gantryCoordY: numpy.Array;
-  imgEnd: number;
-  detrEnd: number;
   angles: number[];
 }
 
@@ -200,7 +198,7 @@ function computeGantryCoordinates(param: RaysCfg): GantryCoordinates {
   const gantryCoordX = np.array(gantryCoordXData).reshape([latSteps, param.detrNum]);
   const gantryCoordY = np.array(gantryCoordYData).reshape([latSteps, param.detrNum]);
 
-  return { gantryCoordX, gantryCoordY, imgEnd, detrEnd, angles };
+  return { gantryCoordX, gantryCoordY, angles };
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -241,7 +239,7 @@ async function main(): Promise<void> {
 
   // Compute gantry geometry
   status.textContent = "Computing fan-beam geometry…";
-  const { gantryCoordX, gantryCoordY, imgEnd, detrEnd, angles } =
+  const { gantryCoordX, gantryCoordY, angles } =
     computeGantryCoordinates(param);
   const numAngles = angles.length;
 
@@ -281,8 +279,6 @@ async function main(): Promise<void> {
 
     const result = await art(
       sinogram,
-      imgEnd,
-      detrEnd,
       gantryCoordX,
       gantryCoordY,
       angles,
