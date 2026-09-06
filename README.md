@@ -80,6 +80,10 @@ optional and default to the values shown above.
 See the [tutorial](docs/tutorial.md) for a detailed walk-through of every
 parameter and the full reconstruction pipeline.
 
+The [documentation site](https://zhiqwang.github.io/huo/) also includes the
+[mathematical analysis of residual backprojection](docs/backward_propagation_proof.md)
+and [documentation publishing instructions](docs/publishing.md).
+
 ### Python — Library Usage
 
 ```python
