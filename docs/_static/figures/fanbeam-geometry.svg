@@ -1,0 +1,127 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 840"
+     role="img" aria-labelledby="fanbeam-title fanbeam-description"
+     class="huo-fanbeam-geometry">
+  <title id="fanbeam-title">Fan-beam geometry at angle zero</title>
+  <desc id="fanbeam-description">
+    The source S is at (0, source_distance), below the image centre O in array
+    coordinates. The detector is at y=-det_distance. The axial distance D is
+    their sum. Image coordinates x and y increase rightward and downward.
+    The selected ray reaches detector coordinate u and contains point p;
+    t is the distance from S to p. The image side is N=resolution pixels.
+  </desc>
+  <style>
+    .huo-fanbeam-geometry {
+      --fg-ink: var(--pst-color-text-base, #222832);
+      --fg-muted: var(--pst-color-text-muted, #48566b);
+      --fg-line: var(--pst-color-border, #d1d5da);
+      --fg-surface: var(--pst-color-surface, #f3f4f5);
+      --fg-accent: var(--pst-color-primary, #d9482f);
+      --fg-object: var(--pst-color-info, #276be9);
+      display: block; width: 100%; max-width: 1000px; height: auto;
+      margin: 1.5rem auto; background: var(--pst-color-background, #fff);
+      border: 1px solid var(--fg-line); border-radius: 8px;
+    }
+    .huo-fanbeam-geometry text {
+      font-family: system-ui, sans-serif; font-size: 21px; fill: var(--fg-ink);
+    }
+    .huo-fanbeam-geometry .title { font-size: 27px; font-weight: 600; }
+    .huo-fanbeam-geometry .note { font-size: 18px; fill: var(--fg-muted); }
+    .huo-fanbeam-geometry .accent { fill: var(--fg-accent); }
+    .huo-fanbeam-geometry .halo {
+      paint-order: stroke; stroke: var(--pst-color-background, #fff); stroke-width: 4px;
+    }
+    .huo-fanbeam-geometry .guide {
+      fill: none; stroke: var(--fg-line); stroke-width: 1.5; stroke-dasharray: 5 5;
+    }
+    .huo-fanbeam-geometry .dimension {
+      fill: none; stroke: var(--fg-ink); stroke-width: 1.6;
+      marker-start: url(#fanbeam-arrow); marker-end: url(#fanbeam-arrow);
+    }
+    .huo-fanbeam-geometry .ray {
+      fill: none; stroke: var(--fg-muted); stroke-width: 1.5; opacity: .6;
+    }
+    .huo-fanbeam-geometry .selected-ray {
+      fill: none; stroke: var(--fg-accent); stroke-width: 3;
+    }
+  </style>
+  <defs>
+    <!-- Anchor each open arrowhead at its tip, exactly on the path endpoint. -->
+    <marker id="fanbeam-arrow" viewBox="0 0 10 10" refX="9" refY="5"
+            markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 1 1 L 9 5 L 1 9" fill="none" stroke="var(--fg-ink)"
+            stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
+    </marker>
+    <marker id="fanbeam-accent-arrow" viewBox="0 0 10 10" refX="9" refY="5"
+            markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M 1 1 L 9 5 L 1 9" fill="none" stroke="var(--fg-accent)"
+            stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
+    </marker>
+  </defs>
+
+  <text x="28" y="40" class="title">Fan-beam geometry at θ = 0</text>
+  <text x="28" y="71" class="note">Image coordinates: +x right, +y down. Schematic; not to scale.</text>
+
+  <path d="M 85 190 H 500 M 210 410 H 380 M 85 740 H 500" class="guide"/>
+  <path d="M 85 190 V 740" class="dimension"/>
+  <text transform="translate(57 465) rotate(-90)" text-anchor="middle">D = d<tspan baseline-shift="sub" font-size="75%">s</tspan> + d<tspan baseline-shift="sub" font-size="75%">d</tspan></text>
+  <path d="M 210 190 V 410" class="dimension"/>
+  <text transform="translate(181 300) rotate(-90)" text-anchor="middle" style="font-size:19px">d<tspan baseline-shift="sub" font-size="75%">d</tspan> = det_distance</text>
+  <path d="M 210 410 V 740" class="dimension"/>
+  <text transform="translate(181 575) rotate(-90)" text-anchor="middle">d<tspan baseline-shift="sub" font-size="75%">s</tspan> = source_distance</text>
+
+  <rect x="380" y="290" width="240" height="240" fill="var(--fg-surface)"
+        stroke="var(--fg-muted)" stroke-width="1.8"/>
+  <path d="M 420 290 V 530 M 460 290 V 530 M 500 290 V 530 M 540 290 V 530 M 580 290 V 530
+           M 380 330 H 620 M 380 370 H 620 M 380 410 H 620 M 380 450 H 620 M 380 490 H 620"
+        fill="none" stroke="var(--fg-line)" stroke-width="1"/>
+  <ellipse cx="515" cy="410" rx="85" ry="80" fill="var(--fg-object)" fill-opacity=".12"
+           stroke="var(--fg-object)" stroke-opacity=".55" stroke-width="1.5"/>
+  <text x="360" y="284" text-anchor="end">Image grid</text>
+
+  <path d="M 500 740 L 300 190 M 500 740 L 400 190 M 500 740 L 600 190 M 500 740 L 700 190"
+        class="ray"/>
+  <path d="M 500 740 V 119" class="guide"/>
+  <path d="M 500 740 L 650 190" class="selected-ray"/>
+  <!-- Normal extensions put the open arrow tips exactly on the distance guides. -->
+  <path d="M 500 740 L 523.154 746.315 M 605 355 L 628.154 361.315" class="guide"/>
+  <path d="M 515.436 744.210 L 620.436 359.210" fill="none" stroke="var(--fg-accent)" stroke-width="1.6"
+        marker-start="url(#fanbeam-accent-arrow)" marker-end="url(#fanbeam-accent-arrow)"/>
+  <text x="610" y="595" class="accent" style="font-style:italic;font-size:26px">t</text>
+  <text x="640" y="595" class="note">Distance from S to p</text>
+  <circle cx="605" cy="355" r="5.5" fill="var(--fg-accent)"/>
+  <path d="M 613 352 L 710 327 H 737" fill="none" stroke="var(--fg-muted)" stroke-width="1.2"/>
+  <text x="751" y="331">p = (x, y)</text>
+  <circle cx="500" cy="740" r="7" fill="var(--fg-accent)"/>
+  <text x="540" y="752">Source S</text>
+  <text x="540" y="781" class="note">(0, d<tspan baseline-shift="sub" font-size="75%">s</tspan>)</text>
+
+  <g fill="none" stroke="var(--fg-ink)" stroke-width="1.8" marker-end="url(#fanbeam-arrow)">
+    <path d="M 500 410 H 668"/>
+    <path d="M 500 410 V 513"/>
+  </g>
+  <circle cx="500" cy="410" r="4" fill="var(--fg-ink)"/>
+  <text x="486" y="436" text-anchor="end" class="halo">O (0, 0)</text>
+  <text x="684" y="417">+x</text>
+  <text x="515" y="519">+y</text>
+  <path d="M 380 535 V 557 M 620 535 V 557" class="guide"/>
+  <path d="M 380 550 H 620" class="dimension"/>
+  <text x="500" y="580" text-anchor="middle">N = resolution</text>
+
+  <rect x="275" y="181" width="450" height="18" rx="3"
+        fill="var(--fg-surface)" stroke="var(--fg-muted)" stroke-width="1.8"/>
+  <g fill="var(--fg-muted)">
+    <circle cx="300" cy="190" r="4"/><circle cx="350" cy="190" r="4"/>
+    <circle cx="400" cy="190" r="4"/><circle cx="450" cy="190" r="4"/>
+    <circle cx="500" cy="190" r="4"/><circle cx="550" cy="190" r="4"/>
+    <circle cx="600" cy="190" r="4"/><circle cx="700" cy="190" r="4"/>
+  </g>
+  <circle cx="650" cy="190" r="6" fill="var(--fg-accent)"/>
+  <text x="656" y="176" class="accent">Dᵤ</text>
+  <text x="751" y="183">Detector plane</text>
+  <text x="751" y="214" class="note">y = −d<tspan baseline-shift="sub" font-size="75%">d</tspan></text>
+  <path d="M 650 181 V 119" class="guide"/>
+  <path d="M 500 128 H 650" fill="none" stroke="var(--fg-accent)" stroke-width="1.6"
+        marker-start="url(#fanbeam-accent-arrow)" marker-end="url(#fanbeam-accent-arrow)"/>
+  <text x="575" y="112" text-anchor="middle" class="accent" style="font-style:italic;font-size:26px">u</text>
+  <text x="28" y="812" class="note">Distances in pixels. Angles in radians. M detector elements; one row per angle.</text>
+</svg>
