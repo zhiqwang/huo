@@ -1,0 +1,91 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 620"
+     role="img" aria-labelledby="centres-title centres-description"
+     class="huo-sampling-centres">
+  <title id="centres-title">Physical edges and interpolation centres</title>
+  <desc id="centres-description">
+    Image edges are at plus or minus N/2; centres at plus or minus (N-1)/2.
+    One pixel has unit spacing. Detector centres are separated by det_spacing;
+    their extreme coordinate is (M-1)*det_spacing/2. All distances are pixels.
+  </desc>
+  <style>
+    .huo-sampling-centres {
+      --sc-ink: var(--pst-color-text-base, #222832);
+      --sc-muted: var(--pst-color-text-muted, #48566b);
+      --sc-line: var(--pst-color-border, #d1d5da);
+      --sc-surface: var(--pst-color-surface, #f3f4f5);
+      --sc-accent: var(--pst-color-primary, #d9482f);
+      display: block; width: 100%; max-width: 1000px; height: auto;
+      margin: 1.5rem auto; background: var(--pst-color-background, #fff);
+      border: 1px solid var(--sc-line); border-radius: 8px;
+    }
+    .huo-sampling-centres text {
+      font-family: system-ui, sans-serif; font-size: 21px; fill: var(--sc-ink);
+    }
+    .huo-sampling-centres .title { font-size: 27px; font-weight: 600; }
+    .huo-sampling-centres .note { font-size: 18px; fill: var(--sc-muted); }
+    .huo-sampling-centres .centre { fill: var(--sc-accent); }
+    .huo-sampling-centres .guide {
+      fill: none; stroke: var(--sc-line); stroke-width: 1.4; stroke-dasharray: 4 4;
+    }
+    .huo-sampling-centres .dimension {
+      fill: none; stroke: var(--sc-ink); stroke-width: 1.5;
+      marker-start: url(#centres-arrow); marker-end: url(#centres-arrow);
+    }
+  </style>
+  <defs>
+    <!-- Anchor each open arrowhead at its tip, exactly on the path endpoint. -->
+    <marker id="centres-arrow" viewBox="0 0 10 10" refX="9" refY="5"
+            markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 1 1 L 9 5 L 1 9" fill="none" stroke="var(--sc-ink)"
+            stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
+    </marker>
+  </defs>
+
+  <text x="28" y="39" class="title">Physical edges and interpolation centres</text>
+  <text x="28" y="69" class="note">The first and last centres sit half a cell inside the physical boundaries.</text>
+
+  <text x="28" y="181">Image row</text>
+  <rect x="210" y="150" width="600" height="60" fill="var(--sc-surface)"
+        stroke="var(--sc-muted)" stroke-width="1.6"/>
+  <path d="M 330 150 V 210 M 450 150 V 210 M 570 150 V 210 M 690 150 V 210"
+        fill="none" stroke="var(--sc-line)" stroke-width="1.5"/>
+  <g class="centre">
+    <circle cx="270" cy="180" r="5"/><circle cx="390" cy="180" r="5"/>
+    <circle cx="510" cy="180" r="5"/><circle cx="630" cy="180" r="5"/>
+    <circle cx="750" cy="180" r="5"/>
+  </g>
+  <path d="M 270 111 V 177 M 390 111 V 177" class="guide"/>
+  <path d="M 270 111 H 390" class="dimension"/>
+  <text x="330" y="99" text-anchor="middle" style="font-size:19px">Pixel spacing = 1</text>
+  <text x="270" y="142" text-anchor="middle" class="centre">−aₓ</text>
+  <text x="750" y="142" text-anchor="middle" class="centre">+aₓ</text>
+  <path d="M 210 211 V 249 M 810 211 V 249" class="guide"/>
+  <text x="190" y="228" text-anchor="end">−N/2</text>
+  <text x="830" y="228">+N/2</text>
+  <path d="M 210 246 H 810" class="dimension"/>
+  <text x="510" y="275" text-anchor="middle">N = resolution</text>
+  <text x="510" y="305" text-anchor="middle" class="centre">aₓ = pixel_extent = (N − 1) / 2</text>
+
+  <text x="28" y="422">Detector row</text>
+  <rect x="210" y="390" width="600" height="50" fill="var(--sc-surface)"
+        stroke="var(--sc-muted)" stroke-width="1.6"/>
+  <path d="M 310 390 V 440 M 410 390 V 440 M 510 390 V 440 M 610 390 V 440 M 710 390 V 440"
+        fill="none" stroke="var(--sc-line)" stroke-width="1.5"/>
+  <g class="centre">
+    <circle cx="260" cy="415" r="5"/><circle cx="360" cy="415" r="5"/>
+    <circle cx="460" cy="415" r="5"/><circle cx="560" cy="415" r="5"/>
+    <circle cx="660" cy="415" r="5"/><circle cx="760" cy="415" r="5"/>
+  </g>
+  <path d="M 260 353 V 412 M 360 353 V 412" class="guide"/>
+  <path d="M 260 353 H 360" class="dimension"/>
+  <text x="310" y="339" text-anchor="middle" style="font-size:19px">Δu = det_spacing</text>
+  <text x="260" y="382" text-anchor="middle" class="centre">−aᵤ</text>
+  <text x="760" y="382" text-anchor="middle" class="centre">+aᵤ</text>
+  <path d="M 210 441 V 489 M 810 441 V 489" class="guide"/>
+  <text x="190" y="461" text-anchor="end" style="font-size:19px">−M Δu/2</text>
+  <text x="830" y="461" style="font-size:19px">+M Δu/2</text>
+  <path d="M 210 486 H 810" class="dimension"/>
+  <text x="510" y="516" text-anchor="middle">M Δu = det_count × det_spacing</text>
+  <text x="510" y="550" text-anchor="middle" class="centre">aᵤ = det_extent = (M − 1) Δu / 2</text>
+  <text x="28" y="590" class="note">Cells are enlarged for clarity; the number shown is illustrative.</text>
+</svg>

@@ -1,219 +1,159 @@
 # Huo
 
-A CT image reconstruction library implementing the [Algebraic Reconstruction Technique (ART)](https://en.wikipedia.org/wiki/Algebraic_reconstruction_technique) with both a **Python** (PyTorch) back-end and a **TypeScript** (jax-js) browser front-end.
+Fan-beam CT forward projection and ART-inspired residual reconstruction with
+Python / PyTorch and TypeScript / jax-js implementations.
 
-> **Note:** This project was written mainly to validate that PyTorch can work
-> in the general scientific-computing field. The current implementation has no
-> deep-learning components — if you want to apply it in a DL context you will
-> need to add those parts manually.
+Both implementations use **the same geometry fields, radians, pixel units,
+and `[angle, detector]` sinograms**. The public names and scanner orientation
+follow [torch-radon](https://github.com/matteo-ronchetti/torch-radon).
+See [Geometry](docs/geometry.md) for the common notation and diagrams, and the
+[Tutorial](docs/tutorial.md) for runnable examples.
 
-## What is ART?
+## Iterative update
 
-The **Algebraic Reconstruction Technique** is a classical iterative algorithm
-for reconstructing a 2-D image from its projections (a *sinogram*), as
-collected by a Computed Tomography (CT) scanner.
+A reconstruction starts from zero and visits each angle once in random order:
 
-At each iteration the algorithm:
+1. Forward-project the current image to predict one detector row.
+2. Subtract that row from the measured sinogram row.
+3. Divide by the ray-window length, `resolution` in pixel units.
+4. Backproject the residual and clamp negative image values to zero.
 
-1. **Forward-projects** the current image estimate to predict what a single
-   detector measurement should look like.
-2. Computes the **residual** between the predicted and the actually measured
-   sinogram column.
-3. **Back-projects** that residual into image space to correct the estimate.
-4. **Clamps** negative values to zero.
-
-Angles are visited in random order during one sweep from a zero image. The
-implementation uses an ART-inspired update for each angle; equivalence to
-Kaczmarz row projections and convergence require additional assumptions. See
-the [mathematical analysis](docs/backward_propagation_proof.md) for the precise
-conditions, implementation limits, and executable Lean proofs.
+The implementation uses uniform residual backfill. Its equivalence to a
+Kaczmarz projection and its convergence require additional assumptions. The
+[mathematical analysis](docs/backward_propagation_proof.md) separates these
+claims and includes executable Lean proofs.
 
 ## Installation
 
-### Python
+Use Python 3.11 or newer for current PyTorch releases. Install PyTorch
+explicitly, then Huo:
 
 ```bash
 git clone https://github.com/zhiqwang/huo.git
 cd huo
-
-# with uv (recommended)
-uv pip install -e .
-
-# or with pip
-pip install -e .
+python -m pip install torch
+python -m pip install -e .
 ```
 
-**Requirements:** Python ≥ 3.9, NumPy ≥ 1.18.5, PyTorch (see
-[pytorch.org](https://pytorch.org/get-started/locally/) for install instructions).
-
-### TypeScript / Browser Demo
+For the browser demo:
 
 ```bash
 cd packages
-npm install
+npm ci
 npm run build
-npx serve .
+python -m http.server 8080 --bind 0.0.0.0
 ```
 
-Then open `http://localhost:3000/demo/` in a modern browser (Chrome / Edge with
-WebGPU recommended).
+Open `http://localhost:8080/demo/`, or use the server's address from another
+machine. jax-js loads through the demo's CDN import map.
 
-## Quick Start
-
-### Python — CLI Reconstruction
-
-After installing the package (`pip install -e .` or `uv pip install -e .`), the
-`huo-art` command is available system-wide:
-
-```bash
-huo-art ./data/sinogram.npy -o reconstruction.npy \
-    --img-pixels 512 \
-    --img-len 144 \
-    --detr-num 500 \
-    --detr-len 180 \
-    --sdd 1200 \
-    --sod 981 \
-    --rotate-step 1.0
-```
-
-The first positional argument is the path to a `.npy` sinogram file. Use
-`-o` / `--output` to save the reconstructed image. All geometry flags are
-optional and default to the values shown above.
-
-See the [tutorial](docs/tutorial.md) for a detailed walk-through of every
-parameter and the full reconstruction pipeline.
-
-The [documentation site](https://zhiqwang.github.io/huo/) also includes the
-[mathematical analysis of residual backprojection](docs/backward_propagation_proof.md)
-and [documentation publishing instructions](docs/publishing.md).
-
-### Python — Library Usage
+## Python example
 
 ```python
+import math
 import torch
 from huo import RadonFanbeam
 
-# Create a fan-beam CT operator (all geometry is pre-computed once)
-angles = torch.arange(0, 360, step=1.0)
 radon = RadonFanbeam(
-    resolution=512,
-    angles=angles,
-    source_distance=981,    # SOD in mm
-    det_distance=219,       # SDD − SOD in mm
-    det_count=500,
-    det_spacing=0.36,       # 180 mm / 500 elements
-    volume_size=144,        # FOV diameter in mm
+    resolution=64,
+    angles=torch.arange(24, dtype=torch.float32) * (math.pi / 12),
+    source_distance=436,
+    det_distance=97.33333333333333,
+    det_count=80,
+    det_spacing=1,
+    ray_sampling=2,
 )
-
-# Forward projection (image → sinogram)
-sinogram = radon.forward(img)       # [det_count, num_angles]
-
-# Back-projection (sinogram → image)
-bp = radon.backprojection(sinogram) # [resolution, resolution]
-
-# ART reconstruction (sinogram → image)
-reconstructed = radon.art(sinogram) # [resolution, resolution]
+image = torch.zeros(64, 64, dtype=torch.float32)
+image[20:44, 24:40] = 1
+sinogram = radon.forward(image)           # [24, 80]: angle, detector
+backprojected = radon.backprojection(sinogram)
+reconstructed = radon.art(sinogram)       # [64, 64]
 ```
 
-The low-level functions in `huo.art` (``forward_propagation``,
-``backward_propagation``, ``scan``, ``art``) are still available for
-backward compatibility.
+Use CPU `float32` tensors. Geometry is immutable and cached in `radon.geometry`.
+The TypeScript class accepts an object with these exact field names; its
+methods return promises of jax-js arrays.
 
-### Browser — Interactive Demo
+## Command line
 
-The demo visualises both the **forward projection** (Radon transform — building
-the sinogram angle by angle) and the **ART reconstruction** (back-projection —
-iteratively recovering the image). A *Frame delay* slider lets you control the
-animation speed so that each step can be observed.
-
-## Project Structure
-
+```bash
+huo-art sinogram.npy --angles angles.npy \
+  --resolution 64 --source-distance 436 --det-distance 97.33333333333333 \
+  --det-count 80 --det-spacing 1 --ray-sampling 2 --output reconstruction.npy
 ```
+
+`sinogram.npy` must have shape `[V, M]`. `angles.npy` is a one-dimensional
+radian array in row order. Alternatively, `--angle-step` generates uniform
+angles in `[0, 2π)`; its default is `π/180`. The two angle options are mutually
+exclusive. The CLI casts NumPy values to `float32` and runs one sweep.
+
+This is an API migration. Earlier Huo data needs angle, axis, detector-order,
+and length-unit conversion; follow [Migrating earlier data](docs/geometry.md#migrating-earlier-huo-data).
+
+## Shared API
+
+Both languages expose `RadonFanbeam` with these methods:
+
+| Method | Input → output |
+| --- | --- |
+| `forward(image)` | `[N, N]` → `[V, M]` |
+| `backprojection(sinogram)` | `[V, M]` → `[N, N]`, summed over angles |
+| `art(sinogram)` | `[V, M]` → `[N, N]`, one clipped residual sweep |
+| `forward_angle(image, angle)` | `[N, N]` → `[M]` |
+| `backprojection_angle(projection, angle)` | `[M]` → `[N, N]` |
+
+| Field | Meaning |
+| --- | --- |
+| `resolution` | $N$: image pixels per axis |
+| `angles` | $V$ angles in radians, in sinogram row order |
+| `source_distance` | $d_s$: source to image centre, in pixels |
+| `det_distance` | $d_d$: image centre to detector plane, in pixels |
+| `det_count` | $M$: detector elements |
+| `det_spacing` | $\Delta u$: detector spacing, in pixels |
+| `ray_sampling` | $q_{\rm ray}$: integration intervals per pixel; defaults to 2 |
+
+`FanbeamGeometry` derives `source_detector_distance`, `pixel_extent`,
+`det_extent`, `ray_sample_count`, and `ray_step`. At angle zero the source is
+`(0, source_distance)` and the detector plane is `y = -det_distance`.
+
+## Repository structure
+
+```text
 huo/
-├── huo/                    # Python package
-│   ├── __init__.py
-│   ├── radon.py            # RadonFanbeam class (torch-radon-style API)
-│   ├── art.py              # Low-level functions (forward / backward / scan / art)
-│   └── cli.py              # CLI entry-point (huo-art command)
-├── tools/
-│   └── projection.py       # Thin wrapper → huo.cli.main
-├── packages/               # TypeScript / browser implementation
-│   ├── src/
-│   │   └── art.ts          # Core CT algorithms (jax-js)
-│   ├── demo/
-│   │   ├── index.html      # Interactive visualisation page
-│   │   └── main.ts         # Demo logic: phantom, rendering, UI
-│   ├── package.json
-│   └── tsconfig.json
-├── docs/
-│   └── tutorial.md         # Usage tutorial & algorithm walk-through
-├── pyproject.toml
-├── LICENSE
-└── README.md
+  geometry.py                 Shared Python geometry
+  art.py                      Per-angle operators
+  radon.py                    RadonFanbeam
+  cli.py                      CLI and NumPy I/O
+packages/
+  src/geometry.ts             Same geometry fields and coordinate rules
+  src/art.ts                  TypeScript RadonFanbeam
+  demo/                       Interactive browser demo
+  tests/                      TypeScript regressions
+tests/                        Python regressions and shared fixtures
+docs/                         English Sphinx documentation
+lean/Huo/BackwardPropagation.lean  Formal algebra and convergence lemmas
 ```
 
-## API Overview
+## Checks
 
-### Python — `RadonFanbeam` class (`huo.radon`)
+With PyTorch, pytest, and the JavaScript dependencies installed:
 
-The recommended interface.  Follows the
-[torch-radon](https://torch-radon.readthedocs.io/en/latest/modules/radon.html)
-convention: geometry is configured once in the constructor, then ``forward`` /
-``backprojection`` / ``art`` operate on plain tensors.
+```bash
+npm --prefix packages test
+python -m pytest tests
+```
 
-| Method | Description |
-|---|---|
-| `RadonFanbeam(resolution, angles, source_distance, det_distance, det_count, det_spacing, volume_size, lat_sampling)` | Constructor — pre-computes fan-beam gantry coordinates |
-| `forward(img)` | Radon transform over all angles (image → sinogram) |
-| `backprojection(sinogram)` | Back-projection over all angles (sinogram → image) |
-| `art(sinogram)` | ART iterative reconstruction (sinogram → image) |
+The Python suite also compares the built TypeScript operators on shared signed
+inputs when Node and the JavaScript dependencies are available.
 
-### Python — low-level functions (`huo.art`)
-
-| Function | Description |
-|---|---|
-| `forward_propagation(img, gantry_coor_x, gantry_coor_y, view, param)` | Forward-project the image at a single angle (Radon transform) |
-| `backward_propagation(sinogram, img_end, detr_end, view, param)` | Back-project a sinogram column at a single angle |
-| `scan(img, gantry_coor_x, gantry_coor_y, gantry_view, param)` | Full forward projection over all angles → sinogram |
-| `art(sinogram, img_end, detr_end, gantry_coor_x, gantry_coor_y, gantry_view, param)` | ART iterative reconstruction → image |
-
-### TypeScript (`packages/src/art.ts`)
-
-| Function | Description |
-|---|---|
-| `forward(img, gantryCoordX, gantryCoordY, angle, param)` | Radon transform for one angle |
-| `backprojection(sinogramData, imgEnd, detEnd, angle, param)` | Back-projection for one angle |
-| `scan(img, gantryCoordX, gantryCoordY, angles, param, ...)` | Full forward projection → sinogram |
-| `art(sinogram, imgEnd, detEnd, gantryCoordX, gantryCoordY, angles, param, ...)` | ART reconstruction → image |
-
-Terminology follows the [torch-radon](https://torch-radon.readthedocs.io/en/latest/) convention.
-
-## CT Geometry Parameters
-
-Both implementations share the same set of geometry parameters:
-
-| Parameter | Python name | TypeScript name | Default | Description |
-|---|---|---|---|---|
-| Image pixels | `--img-pixels` | `imgPixels` | 512 | Number of pixels along each image axis |
-| Image length | `--img-len` | `imgLen` | 144 mm | Diameter of the field of view |
-| Detector count | `--detr-num` | `detrNum` | 500 | Number of detector elements |
-| Detector length | `--detr-len` | `detrLen` | 180 mm | Detector panel length |
-| Lateral sampling | `--lat-sampling` | `latSampling` | 2 | Lateral sampling grid multiplier |
-| SDD | `--sdd` | `sdd` | 1200 mm | Source-to-detector distance |
-| SOD | `--sod` | `sod` | 981 mm | Source-to-object distance |
-| Rotation step | `--rotate-step` | `rotateStep` | 1.0° | Angular step between projections |
-
-## References
-
-- [Algebraic Reconstruction Technique — Wikipedia](https://en.wikipedia.org/wiki/Algebraic_reconstruction_technique)
-- [torch-radon documentation](https://torch-radon.readthedocs.io/en/latest/) (API naming convention)
-- [jax-js](https://github.com/ekzhang/jax-js) (TypeScript numerical computing library)
+For documentation previews and Lean verification, see
+[Maintaining and Publishing Documentation](docs/publishing.md).
 
 ## Contributing
 
-See [CONTRIBUTING.md](.github/CONTRIBUTING.md) for development setup,
-coding guidelines, and pull-request instructions.
+Issues and pull requests are welcome. Keep geometry notation and conventions
+consistent across Python, TypeScript, documentation, diagrams, and proofs.
 
 ## License
 
-This project is released under the [GPL-3.0 License](LICENSE).
+[GPL-3.0](LICENSE).

@@ -20,12 +20,16 @@ open scoped Topology InnerProductSpace
 
 section Geometry
 
-/-- A point `(t*u, -S+t*D)` on a forward ray maps back to detector `u`.
-The distance parameter in the article is obtained with `t = s / sqrt (u²+D²)`.
+/-- A point on the ray from `(0, source_distance)` towards `(u, -det_distance)`
+maps to detector `u`. With `D = source_distance + det_distance`, the article's
+ray-distance parameter satisfies `scale = t / sqrt (u²+D²)`.
 -/
-theorem ray_coordinate (S D u t : ℝ) (hD : D ≠ 0) (ht : t ≠ 0) :
-    D * (t * u) / (S + (-S + t * D)) = u := by
-  have h : S + (-S + t * D) = t * D := by ring
+theorem ray_coordinate (source_distance det_distance u scale : ℝ)
+    (hD : source_distance + det_distance ≠ 0) (ht : scale ≠ 0) :
+    (source_distance + det_distance) * (scale * u) /
+      (source_distance - (source_distance - scale * (source_distance + det_distance))) = u := by
+  have h : source_distance - (source_distance - scale * (source_distance + det_distance)) =
+      scale * (source_distance + det_distance) := by ring
   rw [h]
   field_simp
 

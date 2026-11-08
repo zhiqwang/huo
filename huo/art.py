@@ -1,92 +1,53 @@
 # Copyright (c) 2022, Zhiqiang Wang. All rights reserved.
 
-import numpy as np
+"""Per-angle sampled operators in the shared fan-beam coordinates."""
+
+import math
+
 import torch
 import torch.nn.functional as F
 
 
-def art(sinogram, img_end, detr_end, gantry_coor_x, gantry_coor_y, gantry_view, param):
-    """
-    Algebraic reconstruction technique
-    """
-
-    sinogram = sinogram.unsqueeze(0).unsqueeze(0)
-    img = torch.zeros(param.img_pixels, param.img_pixels)
-
-    indices = torch.randperm(len(gantry_view))
-    for i in indices:
-        view = gantry_view[i]
-        res = sinogram[:, :, :, i] - forward_propagation(img, gantry_coor_x, gantry_coor_y, view, param)
-        res /= param.img_len
-        img += backward_propagation(res, img_end, detr_end, view, param)
-        img = torch.clamp(img, min=0)
-
-    return img
-
-
-def scan(img, gantry_coor_x, gantry_coor_y, gantry_view, param):
-    """
-    CT scaning
-    """
-
-    sinogram = torch.zeros(param.detr_num, len(gantry_view))
-    sinogram = sinogram.unsqueeze(0).unsqueeze(0)
-    # scaning per angle
-    for i, view in enumerate(gantry_view):
-        sinogram[:, :, :, i] = forward_propagation(img, gantry_coor_x, gantry_coor_y, view, param)
-    sinogram = sinogram.squeeze(0).squeeze(0)
-
-    return sinogram
+def forward_angle(image, ray_x, ray_y, angle, geometry):
+    """Integrate one detector row at ``angle`` radians using zero padding."""
+    # The public angle convention rotates scanner rays by R_{-angle}.
+    c, s = math.cos(angle), math.sin(angle)
+    x = c * ray_x + s * ray_y
+    y = -s * ray_x + c * ray_y
+    samples = torch.stack((x, y), dim=-1)
+    # grid_sample requires [batch, channel, height, width], even for one image.
+    values = F.grid_sample(
+        image.reshape(1, 1, *image.shape),
+        samples.unsqueeze(0),
+        padding_mode="zeros",
+        align_corners=True,
+    )
+    # Remove the singleton batch/channel axes while integrating the ray samples.
+    return geometry.ray_step * values.sum(dim=(0, 1, 2))
 
 
-def forward_propagation(img, gantry_coor_x, gantry_coor_y, view, param):
-    """
-    Forward propagation per angle
-    """
-    # rotate counter clockwise
-    # Set angle
-    img = img.unsqueeze(0).unsqueeze(0)
-    view = torch.tensor([view * np.pi / 180.0])
-
-    gantry_rot_x = gantry_coor_x * torch.cos(view) - gantry_coor_y * torch.sin(view)
-    gantry_rot_y = gantry_coor_x * torch.sin(view) + gantry_coor_y * torch.cos(view)
-
-    gantry_rot_x = gantry_rot_x.unsqueeze(0).unsqueeze(3)
-    gantry_rot_y = gantry_rot_y.unsqueeze(0).unsqueeze(3)
-    samples = torch.cat([gantry_rot_x, gantry_rot_y], 3)
-    img_gantry_interp = F.grid_sample(img, samples, align_corners=True)
-    img_gantry_interp = img_gantry_interp.squeeze(0).squeeze(0)
-    lat_step = param.img_len / param.img_pixels / param.lat_sampling
-    sinogram = lat_step * torch.sum(img_gantry_interp, dim=0)
-    return sinogram
+def _linear_sample(projection, index):
+    """Interpolate a detector row at fractional indices, with zero neighbours."""
+    # One zero at each end retains partial edge weights. More distant samples
+    # clamp to those zeros, not to the first/last measured detector value.
+    padded = F.pad(projection, (1, 1))
+    position = index.clamp(-1, projection.numel()) + 1
+    left = position.long()  # position is nonnegative, so truncation equals floor.
+    right = (left + 1).clamp(max=padded.numel() - 1)
+    return torch.lerp(torch.take(padded, left), torch.take(padded, right), position - left)
 
 
-def backward_propagation(sinogram, img_end, detr_end, view, param):
-    """
-    Backward propagation per angle
-    """
-    # pre processing
-    sinogram = sinogram.unsqueeze(3)
-    # set angle
-    view = torch.tensor([view * np.pi / 180.0])
-    # rotation matrix
-    theta = torch.tensor(
-        [[torch.cos(view), torch.sin(view), 0], [-torch.sin(view), torch.cos(view), 0]]
-    ).unsqueeze(0)
-
-    img_grid_rot = F.affine_grid(theta, (1, 1, param.img_pixels, param.img_pixels)).squeeze(0)
-    img_rot_x = img_grid_rot[:, :, 0]
-    img_rot_y = img_grid_rot[:, :, 1]
-
-    img_rot_y = img_rot_y + param.sod / img_end
-    samples = param.sdd * img_rot_x / img_rot_y
-    samples /= detr_end
-    samples = samples.reshape(-1, 1)
-    samples = samples.unsqueeze(2).unsqueeze(0)
-    samples = torch.cat([torch.zeros_like(samples), samples], 3)
-
-    img = F.grid_sample(sinogram, samples, align_corners=True)
-    img = img.squeeze(0).squeeze(0)
-    img = img.reshape(param.img_pixels, param.img_pixels)
-
-    return img
+def backprojection_angle(projection, angle, geometry):
+    """Uniformly backfill one detector row; this is the B operator in the proof."""
+    c, s = math.cos(angle), math.sin(angle)
+    centres = torch.arange(geometry.resolution, dtype=projection.dtype, device=projection.device)
+    centres = centres - geometry.pixel_extent
+    y, x = torch.meshgrid(centres, centres, indexing="ij")
+    # R_angle maps image pixels back into scanner coordinates, in pixel units.
+    x_rot, y_rot = c * x - s * y, s * x + c * y
+    denominator = geometry.source_distance - y_rot
+    if (denominator <= 0).any():
+        raise ValueError("All image pixel centres must be in front of the source at this angle")
+    u = geometry.source_detector_distance * x_rot / denominator
+    index = u / geometry.det_spacing + (geometry.det_count - 1) / 2
+    return _linear_sample(projection, index)

@@ -9,26 +9,25 @@
 //
 // Terminology follows the torch-radon convention:
 //   forward()       → Radon transform  (image → sinogram)
-//   backprojection() → inverse Radon   (sinogram → image)
+//   backprojection() → uniform backfill (sinogram → image)
 //
 // Ported from tools/projection.py.
 
 import { init, numpy } from "@jax-js/jax";
-import { art, scan, RaysCfg } from "../src/art.js";
+import { RadonFanbeam } from "../src/art.js";
 
 const np = numpy;
 
-// ── CT Scanner Parameters (matching the Python defaults) ─────────────────────
+// ── Scanner geometry: radians, pixel units, [angle, detector] sinograms ────────
 
-const param = new RaysCfg({
-  imgPixels: 128, // Reduced from 512 for interactive performance
-  imgLen: 144, // Diameter of the FOV (mm)
-  detrNum: 200, // Number of detector elements (det_count)
-  detrLen: 180, // Detector panel length (mm)
-  latSampling: 2, // Lateral sampling grid multiplier
-  sdd: 1200, // Source-to-detector distance (mm)
-  sod: 981, // Source-to-object distance (mm)
-  rotateStep: 2, // Rotation step (degrees); 360/2 = 180 angles
+const radon = new RadonFanbeam({
+  resolution: 128,
+  angles: Array.from({ length: 180 }, (_, index) => index * Math.PI / 90),
+  source_distance: 872,
+  det_distance: 194.66666666666666,
+  det_count: 200,
+  det_spacing: 0.8,
+  ray_sampling: 2,
 });
 
 // ── Phantom Generation ───────────────────────────────────────────────────────
@@ -43,7 +42,7 @@ function createPhantom(size: number): Float32Array {
   const data = new Float32Array(size * size);
 
   // Ellipse parameters: [centerX, centerY, semiAxisA, semiAxisB, value]
-  // Coordinates are relative to image center, normalized to [0, 1].
+  // Pixel-centre coordinates relative to the image side, spanning (-0.5, 0.5).
   const ellipses: [number, number, number, number, number][] = [
     [0.0, 0.0, 0.45, 0.35, 1.0], // Outer body
     [0.0, -0.015, 0.41, 0.28, -0.8], // Inner cavity
@@ -58,8 +57,8 @@ function createPhantom(size: number): Float32Array {
   for (const [ecx, ecy, ea, eb, ev] of ellipses) {
     for (let row = 0; row < size; row++) {
       for (let col = 0; col < size; col++) {
-        const dx = (col / size - 0.5 - ecx) / ea;
-        const dy = (row / size - 0.5 - ecy) / eb;
+        const dx = ((col + 0.5) / size - 0.5 - ecx) / ea;
+        const dy = ((row + 0.5) / size - 0.5 - ecy) / eb;
         if (dx * dx + dy * dy <= 1) {
           data[row * size + col] += ev;
         }
@@ -118,90 +117,6 @@ function renderToCanvas(
   ctx.putImageData(imageData, 0, 0);
 }
 
-// ── Gantry Coordinate Computation (ported from tools/projection.py) ──────────
-
-interface GantryCoordinates {
-  gantryCoordX: numpy.Array;
-  gantryCoordY: numpy.Array;
-  imgEnd: number;
-  detrEnd: number;
-  angles: number[];
-}
-
-/**
- * Compute gantry ray-tracing coordinates for fan-beam CT geometry.
- *
- * Sets up the fan-beam source / detector geometry that is passed to both the
- * forward projection (Radon transform) and back-projection steps.
- *
- * @param param - CT geometry parameters.
- * @returns Computed gantry coordinates and derived quantities.
- */
-function computeGantryCoordinates(param: RaysCfg): GantryCoordinates {
-  const imgStep = param.imgLen / param.imgPixels;
-  const imgEnd = (param.imgLen - imgStep) / 2;
-  const detrStep = param.detrLen / param.detrNum;
-  const detrEnd = (param.detrLen - detrStep) / 2;
-
-  // View angles
-  const angles: number[] = [];
-  for (let a = 0; a < 360; a += param.rotateStep) {
-    angles.push(a);
-  }
-
-  // X-ray source is on the top vertical axis at (0, -sod)
-  const srcCoordY = -param.sod;
-
-  // Detector coordinates
-  const detrCoordX = new Float32Array(param.detrNum);
-  const detrCoordY = new Float32Array(param.detrNum);
-  for (let i = 0; i < param.detrNum; i++) {
-    detrCoordX[i] = -detrEnd + (i * (2 * detrEnd)) / (param.detrNum - 1);
-    detrCoordY[i] = param.sdd - param.sod;
-  }
-
-  // Lateral grid along each ray
-  const latEnd = param.imgLen / 2;
-  const latSteps = param.latSampling * param.imgPixels + 1;
-  const latGrid = new Float32Array(latSteps);
-  for (let i = 0; i < latSteps; i++) {
-    latGrid[i] = -latEnd + (i * (2 * latEnd)) / (latSteps - 1);
-    latGrid[i] -= srcCoordY; // Move origin up to X-ray source
-  }
-
-  // Adjust detector Y coordinates
-  for (let i = 0; i < param.detrNum; i++) {
-    detrCoordY[i] -= srcCoordY;
-  }
-
-  // Fan-beam distance for each detector element
-  const fand = new Float32Array(param.detrNum);
-  for (let i = 0; i < param.detrNum; i++) {
-    fand[i] = Math.sqrt(detrCoordX[i] ** 2 + detrCoordY[i] ** 2);
-  }
-
-  // Gantry coordinates [latSteps, detrNum]
-  const gantryCoordXData = new Float32Array(latSteps * param.detrNum);
-  const gantryCoordYData = new Float32Array(latSteps * param.detrNum);
-  for (let k = 0; k < latSteps; k++) {
-    for (let j = 0; j < param.detrNum; j++) {
-      gantryCoordXData[k * param.detrNum + j] = (latGrid[k] * detrCoordX[j]) / fand[j];
-      gantryCoordYData[k * param.detrNum + j] =
-        (latGrid[k] * detrCoordY[j]) / fand[j] + srcCoordY;
-    }
-  }
-
-  // Normalize to [-1, 1] by image extent
-  for (let i = 0; i < gantryCoordXData.length; i++) {
-    gantryCoordXData[i] /= imgEnd;
-    gantryCoordYData[i] /= imgEnd;
-  }
-
-  const gantryCoordX = np.array(gantryCoordXData).reshape([latSteps, param.detrNum]);
-  const gantryCoordY = np.array(gantryCoordYData).reshape([latSteps, param.detrNum]);
-
-  return { gantryCoordX, gantryCoordY, imgEnd, detrEnd, angles };
-}
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -228,22 +143,18 @@ async function main(): Promise<void> {
   status.textContent = "Initializing jax-js…";
   await init();
 
-  const P = param.imgPixels;
+  const N = radon.geometry.resolution;
 
   // Generate phantom
   status.textContent = "Generating phantom…";
-  const phantomData = createPhantom(P);
+  const phantomData = createPhantom(N);
   let phantomMax = 0;
   for (let i = 0; i < phantomData.length; i++) {
     if (phantomData[i] > phantomMax) phantomMax = phantomData[i];
   }
-  renderToCanvas("phantom", phantomData, P, P);
+  renderToCanvas("phantom", phantomData, N, N);
 
-  // Compute gantry geometry
-  status.textContent = "Computing fan-beam geometry…";
-  const { gantryCoordX, gantryCoordY, imgEnd, detrEnd, angles } =
-    computeGantryCoordinates(param);
-  const numAngles = angles.length;
+  const num_angles = radon.angles.length;
 
   status.textContent = "Ready — click Start";
   startBtn.disabled = false;
@@ -256,53 +167,38 @@ async function main(): Promise<void> {
     status.textContent = "Forward projection (angle 0)…";
     progress.value = 0;
 
-    const phantomImg = np.array(phantomData).reshape([P, P]);
-    const sinogram = await scan(
-      phantomImg,
-      gantryCoordX,
-      gantryCoordY,
-      angles,
-      param,
-      // onProgress — render the sinogram as it is being built
-      async (sinoData, detCount, numAnglesTotal, angleIdx) => {
-        renderToCanvas("sinogram", sinoData, numAnglesTotal, detCount);
-        progress.value = ((angleIdx + 1) / numAnglesTotal) * 50; // first half
-        status.textContent = `Forward projection: angle ${angleIdx + 1} / ${numAnglesTotal}`;
-        // Yield to the browser for rendering
-        await new Promise<void>((r) => setTimeout(r, 0));
+    const phantomImg = np.array(phantomData).reshape([N, N]);
+    const sinogram = await radon.forward(phantomImg, {
+      on_progress: async (sinogram_data, angle_index) => {
+        renderToCanvas("sinogram", sinogram_data, radon.geometry.det_count, num_angles);
+        progress.value = ((angle_index + 1) / num_angles) * 50;
+        status.textContent = `Forward projection: angle ${angle_index + 1} / ${num_angles}`;
+        await new Promise<void>((resolve) => setTimeout(resolve, 0));
       },
-      getDelay(),
-    );
+      delay: getDelay(),
+    });
     phantomImg.dispose();
 
     // ── Phase 2: ART reconstruction, frame by frame ───────────────────────
     status.textContent = "Reconstructing (ART)…";
     let iterCount = 0;
 
-    const result = await art(
-      sinogram,
-      imgEnd,
-      detrEnd,
-      gantryCoordX,
-      gantryCoordY,
-      angles,
-      param,
-      async (imgData, size, _angleIdx) => {
+    const result = await radon.art(sinogram, {
+      on_progress: async (image_data, _angle_index) => {
         iterCount++;
-        // Update canvas periodically to show reconstruction progress
-        if (iterCount % 5 === 0 || iterCount === numAngles) {
-          renderToCanvas("reconstruction", imgData, size, size, phantomMax * 1.2);
-          progress.value = 50 + (iterCount / numAngles) * 50; // second half
-          status.textContent = `Reconstruction: iteration ${iterCount} / ${numAngles}`;
-          // Yield to the browser for rendering
-          await new Promise<void>((r) => setTimeout(r, 0));
+        if (iterCount % 5 === 0 || iterCount === num_angles) {
+          renderToCanvas("reconstruction", image_data, N, N, phantomMax * 1.2);
+          progress.value = 50 + (iterCount / num_angles) * 50;
+          status.textContent = `Reconstruction: iteration ${iterCount} / ${num_angles}`;
+          await new Promise<void>((resolve) => setTimeout(resolve, 0));
         }
       },
-      getDelay(),
-    );
+      delay: getDelay(),
+    });
+    sinogram.dispose();
 
     const resultData = await result.data();
-    renderToCanvas("reconstruction", resultData as Float32Array, P, P, phantomMax * 1.2);
+    renderToCanvas("reconstruction", resultData as Float32Array, N, N, phantomMax * 1.2);
     progress.value = 100;
     status.textContent = "Done!";
     startBtn.disabled = false;

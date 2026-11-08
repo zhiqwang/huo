@@ -6,6 +6,7 @@
   "scripts": {
     "build": "tsc",
     "typecheck": "tsc --noEmit",
+    "test": "npm run build && node --test tests/*.test.mjs",
     "dev": "tsc && npx serve ."
   },
   "dependencies": {

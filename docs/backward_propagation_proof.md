@@ -27,21 +27,21 @@ algebraic and convergence results have executable Lean proofs; see
 (update-rule)=
 ## Iterative update
 
-Fix the geometry and an angle $\theta$. Let $P\geq2$ be the image width,
-$n=P^2$, and $d\geq2$ the detector count. Assume positive image and detector
-lengths, a positive integer sampling multiplier, finite sampling coordinates,
-and a nonzero perspective denominator at every backprojected pixel. These
-conditions are needed for the mathematical model; the code does not validate
-all of them.
+Use the notation in [Geometry](geometry.md): $N\geq2$ image pixels per
+axis, $M\geq2$ detector elements, $V$ angles in radians, and pixel-length
+units. Let $n=N^2$ and $L=N$. Assume positive finite scanner distances and
+detector spacing, a positive integer sampling multiplier, and a positive
+perspective denominator at every backprojected pixel. The mathematical
+statements below concern geometries for which these operations are defined.
 
 Flatten the image into $x\in\mathbb R^n$ and define the fixed linear maps
 
 $$
-A_\theta:\mathbb R^n\to\mathbb R^d,
-\qquad B_\theta:\mathbb R^d\to\mathbb R^n.
+A_\theta:\mathbb R^n\to\mathbb R^M,
+\qquad B_\theta:\mathbb R^M\to\mathbb R^n.
 $$
 
-They represent forward projection and `backward_propagation`, respectively.
+They represent forward projection and `backprojection_angle`, respectively.
 Interpolation at fixed coordinates and finite summation are linear in their
 input values. Thus matrices exist even though the code does not store them.
 This is a real-arithmetic model of the operations, not exact linearity of
@@ -49,13 +49,13 @@ floating-point evaluations.
 
 | Symbol | Meaning | Code |
 | --- | --- | --- |
-| $x$ | Current image | `img` |
-| $b_\theta$ | Measured projection at one angle | `sinogram[:, :, :, i]` |
-| $A_\theta x$ | Predicted projection | `forward_propagation(...)` |
-| $r_\theta=b_\theta-A_\theta x$ | Residual before normalization | `res` before division |
-| $B_\theta r_\theta$ | Backprojected residual | `backward_propagation(...)` |
-| $L>0$ | Image length used for normalization | `param.img_len` |
-| $P_+z$ | Componentwise $\max(z_j,0)$ | `torch.clamp(img, min=0)` |
+| $x$ | Current image | `image` |
+| $b_\theta$ | Measured projection at one angle | `sinogram[j, :]` |
+| $A_\theta x$ | Predicted projection | `forward_angle(...)` |
+| $r_\theta=b_\theta-A_\theta x$ | Residual before normalization | `sinogram[j, :] - predicted` |
+| $B_\theta r_\theta$ | Backprojected residual | `backprojection_angle(...)` |
+| $L=N$ | Ray-window length used for normalization | `geometry.resolution` |
+| $P_+z$ | Componentwise $\max(z_j,0)$ | `image.clamp(min=0)` |
 
 Each angle update is therefore
 
@@ -72,41 +72,57 @@ $B_\theta=A_\theta^T$.
 (what-the-continuous-geometry-proves)=
 ## Ray geometry
 
+The coordinate system and symbols are shared with [Geometry](geometry.md).
+Columns follow x and rows follow y. The source is $S=(0,d_s)$, the detector
+plane is $y=-d_d$, and $D=d_s+d_d$. All distances are in pixels. A public
+angle $\theta$ is in radians: forward projection rotates scanner rays by
+$R_{-\theta}$, and backprojection uses $R_\theta$ to return image pixels to
+scanner coordinates.
+
 ### The detector coordinate is constant along a ray
 
-Write $S=\mathrm{SOD}>0$ and $D=\mathrm{SDD}>0$. In scanner coordinates,
-the source is $(0,-S)$ and detector coordinate $u$ denotes $(u,D-S)$.
-For a world point $p=(X,Y)$, set $(X',Y')=R_{-\theta}p$ and assume
-$S+Y'>0$. The detector map is
+For an image point $p=(x,y)$, set $(x',y')=R_\theta p$ and assume $d_s-y'>0$.
+Intersecting its ray with the detector plane gives
 
 $$
-u_\theta(p)=\frac{DX'}{S+Y'}.
+u_\theta(p)=\frac{D x'}{d_s-y'}.
 \tag{2}
 $$
 
 **Proposition 1.** Every point on the forward ray toward detector $u$ maps to $u$.
 
-**Proof.** Parameterize the ray by distance $s>0$ from the source:
+**Proof.** Parameterize the ray by distance $t>0$ from the source:
 
 $$
-X'(s)=\frac{su}{\sqrt{u^2+D^2}},\qquad
-Y'(s)=-S+\frac{sD}{\sqrt{u^2+D^2}}.
+\begin{aligned}
+x'(t)&=\frac{tu}{\sqrt{u^2+D^2}},\\
+y'(t)&=d_s-\frac{tD}{\sqrt{u^2+D^2}}.
+\end{aligned}
 $$
 
-Substitution into (2) cancels the nonzero common factors and gives $u$.
-The Lean theorem `ray_coordinate` checks this cancellation with
-$t=s/\sqrt{u^2+D^2}\ne0$. $\square$
+Substituting into (2) cancels the nonzero common factors. The Lean theorem
+`ray_coordinate` checks this identity with `source_distance` $=d_s$,
+`det_distance` $=d_d$, and `scale` $=t/\sqrt{u^2+D^2}$. $\square$
 
-The code rotates by $R_{-\theta}$ and uses normalized coordinates
-$\xi=X'/\mathtt{img\_end}$, $\eta=Y'/\mathtt{img\_end}$. Consequently
+The pixel-centre extent is $a_x=(N-1)/2$, named `pixel_extent` in both
+languages. For normalized scanner coordinates $\xi=x'/a_x$, $\eta=y'/a_x$,
 
 $$
-\frac{D\xi}{\eta+S/\mathtt{img\_end}}=\frac{DX'}{S+Y'}.
+\frac{D\xi}{d_s/a_x-\eta}=\frac{D x'}{d_s-y'}.
 $$
 
-Dividing by `detr_end` then gives the normalized detector coordinate for
-interpolation. This verifies the perspective formula. Agreement between the
-forward and backward *pixel grids* is a separate requirement.
+Dividing the detector coordinate by $a_u=(M-1)\Delta u/2$, named
+`det_extent`, gives its normalized interpolation coordinate. Equivalently,
+the fractional detector index is
+
+$$
+\frac{M-1}{2}\left(\frac{u_\theta(p)}{a_u}+1\right)
+=\frac{u_\theta(p)}{\Delta u}+\frac{M-1}{2}.
+$$
+
+Both implementations use the right-hand expression to interpolate the 1-D
+detector row directly. This verifies the perspective formula on the shared
+grid, not an adjoint identity.
 
 ### Backfill followed by integration reproduces a scaled projection
 
@@ -121,11 +137,11 @@ representatives of area-almost-everywhere equivalence classes.
 Define
 
 $$
-(\mathcal A_\theta f)(u)=\int_{\Gamma_{\theta,u}} f(p)\,ds,
+(\mathcal A_\theta f)(u)=\int_{\Gamma_{\theta,u}} f(p)\,dt,
 \qquad
 (\mathcal B_\theta g)(p)=g(u_\theta(p)),
 \qquad
-\ell_\theta(u)=\int_{\Gamma_{\theta,u}}1\,ds.
+\ell_\theta(u)=\int_{\Gamma_{\theta,u}}1\,dt.
 \tag{3}
 $$
 
@@ -203,24 +219,25 @@ formalize the ray integral or this $L^2$ argument.
 ### Uniform fan-beam backfill is not the usual continuous adjoint
 
 This distinction exists even before discretization. For the parameterization
-$p(s,u)$ above, the area Jacobian is
+$p(t,u)$ above, the area Jacobian is
 
 $$
-J(s,u)=\left|\det\frac{\partial p}{\partial(s,u)}\right|
-=\frac{sD}{u^2+D^2}>0,\qquad dp=J(s,u)\,ds\,du.
+J(t,u)=\left|\det\frac{\partial p}{\partial(t,u)}\right|
+=\frac{t\,D}{u^2+D^2}>0,
+\qquad dp=J(t,u)\,dt\,du.
 \tag{8}
 $$
 
-For example, assume a compact integration domain with $s$ bounded away from
+For example, assume a compact integration domain with $t$ bounded away from
 zero, so the following change of variables is valid and all weights are
 bounded. With image measure $dp$ and detector measure $du$,
 
 $$
 \begin{aligned}
 \langle\mathcal A_\theta f,g\rangle_{L^2(du)}
-&=\int_U\int_{\Gamma_{\theta,u}} f(p(s,u))g(u)\,ds\,du\\
+&=\int_U\int_{\Gamma_{\theta,u}} f(p(t,u))g(u)\,dt\,du\\
 &=\int_{\Omega_{\rm int}}f(p)\,
-\frac{g(u_\theta(p))}{J(s(p),u_\theta(p))}\,dp.
+\frac{g(u_\theta(p))}{J(t(p),u_\theta(p))}\,dp.
 \end{aligned}
 $$
 
@@ -305,22 +322,23 @@ A scalar division by $L$ does not generally implement this matrix inverse.
 (the-actual-sampled-operators)=
 ## Discrete model
 
-Let $K=P\,\mathtt{lat\_sampling}$, so $\Delta s=L/K$. The code samples
+Let $K=Nq_{\rm ray}$, where $q_{\rm ray}$ is `ray_sampling`, so $\Delta t=L/K=1/q_{\rm ray}$. The code samples
 $K+1$ points, including both endpoints of the distance interval
-$[S-L/2,S+L/2]$. If $z_{\theta,i,t}$ is the physical position of a forward
-sample and $\varphi_j$ its bilinear weight for image pixel $j$, then
+$[d_s-L/2,d_s+L/2]$. If $z_{\theta,i,k}$ is the pixel-coordinate
+position of forward sample $k$ and $\varphi_j$ its bilinear weight for image
+pixel $j$, then
 
 $$
-(A_\theta)_{ij}=\Delta s\sum_{t=0}^{K}\varphi_j(z_{\theta,i,t}).
+(A_\theta)_{ij}=\Delta t\sum_{k=0}^{K}\varphi_j(z_{\theta,i,k}).
 \tag{13}
 $$
 
-The weights include the code's zero-padding convention. If $\widehat p_j$
-is the physical location assigned by the backward grid and $\psi_i$ is the
-one-dimensional detector interpolation weight, then
+The weights include the code's zero-padding convention. If $p_j$
+is the shared image-pixel location and $\psi_i$ is the one-dimensional
+detector interpolation weight, then
 
 $$
-(B_\theta)_{ji}=\psi_i(u_\theta(\widehat p_j)).
+(B_\theta)_{ji}=\psi_i(u_\theta(p_j)).
 \tag{14}
 $$
 
@@ -332,7 +350,7 @@ the row norm normalization in (9) follows from their geometry.
 
 The forward rule gives full weight to both endpoints. A constant value of
 one at **every sampled point** would yield
-$(K+1)\Delta s=L+\Delta s$, not $L$. Actual samples may taper or vanish
+$(K+1)\Delta t=L+\Delta t$, not $L$. Actual samples may taper or vanish
 because of zero padding, and the distance window may omit part of the
 image support. In particular, a square image can have chords longer than
 $L$; a circular support mask is not enforced by these Python functions.
@@ -341,7 +359,7 @@ row sum
 
 $$
 \ell^{\rm disc}_{\theta,i}=(A_\theta\mathbf1)_i
-=\Delta s\sum_{t,j}\varphi_j(z_{\theta,i,t}).
+=\Delta t\sum_{k,j}\varphi_j(z_{\theta,i,k}).
 \tag{15}
 $$
 
@@ -519,28 +537,28 @@ under the sufficient bound $\|Te\|\leq q\|e\|$ for every $e$.
 
 ### Repeating a fixed order
 
-**Theorem 2.** Assume $s\geq1$ fixed angles and a common solution
-$b_i=A_i x_*$. Remove clipping and repeat the order $1,\ldots,s$.
+**Theorem 2.** Assume $V\geq1$ fixed angles and a common solution
+$b_i=A_i x_*$. Remove clipping and repeat the order $1,\ldots,V$.
 Set
 
 $$
-T_i=I-\alpha B_iA_i,\qquad M=T_s\cdots T_1.
+T_i=I-\alpha B_iA_i,\qquad Q=T_V\cdots T_1.
 \tag{25}
 $$
 
 Convergence to the same $x_*$ from every initial image holds if and only if
-$\rho(M)<1$.
+$\rho(Q)<1$.
 
 **Proof.** Errors at sweep boundaries satisfy
-$e^{[t+1]}=Me^{[t]}$, so Theorem 1's matrix-power argument applies to $M$.
+$e^{[t+1]}=Qe^{[t]}$, so Theorem 1's matrix-power argument applies to $Q$.
 Within a sweep, errors are fixed prefix products
 $T_j\cdots T_1e^{[t]}$. Their norms have a finite common bound, so boundary
 convergence implies convergence of all intermediate steps. The converse
 follows by taking the boundary subsequence. $\square$
 
-Products are ordered: the first update acts on the right. Replacing $M$ by
+Products are ordered: the first update acts on the right. Replacing $Q$ by
 $I-\alpha\sum_i B_iA_i$ describes a different algorithm. If a nonzero
-$z$ belongs to every $\ker A_i$, then each $T_i z=z$ and $Mz=z$, so
+$z$ belongs to every $\ker A_i$, then each $T_i z=z$ and $Qz=z$, so
 full-space contraction is impossible. Lean checks the nullspace facts and
 ordered sweep composition in `nullspace_error_fixed`, `sweep_common_fixed`,
 and `sweep_append`.
@@ -549,13 +567,13 @@ With inconsistent data, an angle step is affine, $x^+=T_i x+c_i$, where
 $c_i=\alpha B_i b_i$. A sweep has the form
 
 $$
-x^{[t+1]}=Mx^{[t]}+c,\qquad
-c=\sum_{i=1}^s T_s\cdots T_{i+1}c_i,
+x^{[t+1]}=Qx^{[t]}+c,\qquad
+c=\sum_{i=1}^V T_V\cdots T_{i+1}c_i,
 \tag{26}
 $$
 
-with an empty product equal to $I$. If $\rho(M)<1$, boundaries converge to
-$(I-M)^{-1}c$, but intermediate angle states can approach a periodic cycle.
+with an empty product equal to $I$. If $\rho(Q)<1$, boundaries converge to
+$(I-Q)^{-1}c$, but intermediate angle states can approach a periodic cycle.
 There need not be a common fixed image or an ordinary least-squares solution.
 The fixed-operator formula (23) cannot simply be reused for this schedule.
 
@@ -564,25 +582,25 @@ The fixed-operator formula (23) cannot simply be reused for this schedule.
 If sweep $t$ uses permutation $\pi_t$, then, for consistent unclipped updates,
 
 $$
-e^{[t]}=M_{\pi_{t-1}}\cdots M_{\pi_0}e^{[0]}.
+e^{[t]}=Q_{\pi_{t-1}}\cdots Q_{\pi_0}e^{[0]}.
 \tag{27}
 $$
 
 A sufficient condition is a **common induced norm** and $0\leq q<1$ with
-$\|M_\pi\|\leq q$ for every allowed permutation. Submultiplicativity gives
+$\|Q_\pi\|\leq q$ for every allowed permutation. Submultiplicativity gives
 $\|e^{[t]}\|\leq q^t\|e^{[0]}\|$.
 
 Individual spectral radii alone do not suffice for arbitrary switching.
 For example,
 
 $$
-U=\begin{pmatrix}1/2&2\\0&1/2\end{pmatrix},\quad
-V=\begin{pmatrix}1/2&0\\2&1/2\end{pmatrix},\quad
-VU=\begin{pmatrix}1/4&1\\1&17/4\end{pmatrix}.
+W_1=\begin{pmatrix}1/2&2\\0&1/2\end{pmatrix},\quad
+W_2=\begin{pmatrix}1/2&0\\2&1/2\end{pmatrix},\quad
+W_2W_1=\begin{pmatrix}1/4&1\\1&17/4\end{pmatrix}.
 $$
 
-Both $U$ and $V$ have spectral radius $1/2$, but
-$\rho(VU)=9/4+\sqrt5>1$. This demonstrates the logical gap in a switching
+Both $W_1$ and $W_2$ have spectral radius $1/2$, but
+$\rho(W_2W_1)=9/4+\sqrt5>1$. This demonstrates the logical gap in a switching
 argument; it does not assert that these matrices arise from Huo's angles.
 A random permutation of angle blocks is also not the same sampling scheme
 as independently randomized, row-norm-weighted Kaczmarz updates, so that
@@ -623,10 +641,10 @@ $$
 $$
 
 If there exists $0\leq q<1$ such that every allowed permutation $\pi$ and
-every choice $D_1,\ldots,D_s\in\mathscr D$ satisfy
+every choice $D_1,\ldots,D_V\in\mathscr D$ satisfy
 
 $$
-\boxed{\|D_sT_{\pi(s)}\cdots D_1T_{\pi(1)}\|_2\leq q,}
+\boxed{\|D_VT_{\pi(V)}\cdots D_1T_{\pi(1)}\|_2\leq q,}
 \tag{29}
 $$
 
@@ -704,51 +722,40 @@ example, not a numerical experiment with the repository's CT geometry.
 (findings-specific-to-this-repository)=
 ## Code limits
 
-### Forward and backward image grids use different conventions
+### Shared grids do not make the operators adjoints
 
-The coordinate construction sets
-
-$$
-h=L/P,\qquad \mathtt{img\_end}=(L-h)/2.
-$$
-
-Forward `grid_sample(..., align_corners=True)` places column $j$ at
+Both implementations set $a_x=(N-1)/2$ and use the same pixel centres:
 
 $$
-\xi_j^{\rm true}=-1+\frac{2j}{P-1},\qquad j=0,\ldots,P-1.
-$$
-
-Backward `affine_grid` omits `align_corners`; the default in PyTorch versions
-since 1.3.0 is `False`, giving
-
-$$
-\xi_j^{\rm false}=-1+\frac{2j+1}{P}
-=\frac{P-1}{P}\xi_j^{\rm true}.
-$$
-
-The API documents the convention and the need to align the two operations.
-[PyTorch: `affine_grid`](https://docs.pytorch.org/docs/main/generated/torch.nn.functional.affine_grid.html).
-Since uniform scaling commutes with rotation, the backward pixel position in
-(14) is
-
-$$
-\widehat p_j=\frac{P-1}{P}p_j.
+x_c=a_x\left(-1+\frac{2c}{N-1}\right)=c-\frac{N-1}{2}.
 \tag{33}
 $$
 
-This changes which detector position is sampled. Unifying the conventions
-would remove this particular geometric bias, but would not establish
-$B_\theta=A_\theta^T$. This review describes the Python source; it does
-not change the reconstruction implementation or certify the TypeScript port.
+Rows use the same formula. Python's forward image sampler selects
+`align_corners=True` in `grid_sample`. Backprojection constructs the pixel
+grid directly with `meshgrid`, rotates it in pixel units, and interpolates
+the 1-D detector row at $u/\Delta u+(M-1)/2$. TypeScript uses the same
+coordinates. Image and detector interpolation have zero-valued out-of-range
+neighbours, retaining partial edge weights. The image sampler's normalized-grid
+contract is described in
+[PyTorch's `grid_sample` reference](https://docs.pytorch.org/docs/stable/generated/torch.nn.functional.grid_sample.html).
+
+[tests/test_geometry.py](https://github.com/zhiqwang/huo/blob/main/tests/test_geometry.py)
+and
+[packages/tests/geometry.test.mjs](https://github.com/zhiqwang/huo/blob/main/packages/tests/geometry.test.mjs)
+check ray incidence, detector ramps, quarter-turn direction, odd/even sizes,
+and shared boundary examples. The migration test also checks how previous
+physical-coordinate data converts to the current convention. These tests
+establish sampled cases, not $B_\theta=A_\theta^T$ or convergence; the weights
+in (13) and (14) remain different.
 
 ### Each call starts from zero and performs one sweep
 
-Both `huo.art.art` and `RadonFanbeam.art` allocate a zero image, generate one
-`torch.randperm`, visit each angle once, and return. Calling either function
-again starts over. The CLI calls `RadonFanbeam.art` once and has no
-`--max-epoch` option. Theorems about repeated sweeps describe an extension
-that would preserve the iterate; they do not establish exactness of the
-current one-sweep result.
+Both `RadonFanbeam.art` implementations allocate a zero image, visit every
+angle once in a random permutation, and return. Python uses `torch.randperm`;
+TypeScript uses Fisher–Yates. The CLI calls `art` once. Repeating the call
+starts from zero again. Repeated-sweep theorems describe an extension that
+would preserve the iterate between sweeps.
 
 ### The default system cannot identify every pixel image
 
@@ -769,13 +776,10 @@ $0<|\varepsilon|<m/c$. Then $x_*+\varepsilon z>0$ is distinct from $x_*$
 and has exactly the same data. Uniqueness for a special image requires
 additional support or structural assumptions.
 
-### The current adjoint test does not establish an adjoint identity
+### Positivity does not establish an adjoint identity
 
-`test_adjoint_property` in
-[tests/test_art.py](https://github.com/zhiqwang/huo/blob/main/tests/test_art.py)
-uses nonnegative random inputs and checks only that the two inner products
-are finite and have the same sign. Nonnegative interpolation weights already
-explain that observation. It does not verify
+Nonnegative interpolation weights preserve nonnegative data. The positivity
+checks in `tests/test_art.py` cover that property; they do not verify
 
 $$
 \langle A_\theta x,y\rangle=\langle x,B_\theta y\rangle.
@@ -809,7 +813,7 @@ are treated as errors.
 
 | Article result | Lean declarations | Scope |
 | --- | --- | --- |
-| Ray coordinate cancellation | `ray_coordinate` | Nonzero distance parameter and detector distance |
+| Ray coordinate cancellation | `ray_coordinate` | Nonzero ray scale and source-to-detector distance |
 | Length-model residual and contraction | `length_residual`, `length_contraction` | Scalar algebra, not the continuous integral |
 | Equal-weight ART | `equal_weight_art` | Positive counts and weights imply the required nonzero denominators |
 | Relaxed ART energy law | `art_energy`, `art_energy_nonincreasing` | Arbitrary real inner product space and nonzero row normal |
