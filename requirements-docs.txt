@@ -1,4 +1,6 @@
-mkdocs==1.6.1
-mkdocs-material==9.7.7
-pymdown-extensions==11.0.2
+Sphinx==7.2.6
+myst-parser>=4,<5
+sphinx-autobuild>=2024,<2026
+pytorch-sphinx-theme2 @ git+https://github.com/pytorch/pytorch_sphinx_theme.git@7252b2bb574a0dd534e7c18bfb41e04182f5d1f6
+
 jieba==0.42.1

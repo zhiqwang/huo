@@ -9,3 +9,12 @@ Huo 是一个用于扇束 CT 正向投影与迭代图像重建的项目，提供
 首次使用项目可以从教程开始。若关注 `backward_propagation` 为什么能用于重建，数学文章会从源码对应的算子出发，逐步给出假设与证明。
 
 源码、安装说明和问题反馈见 [GitHub 仓库](https://github.com/zhiqwang/huo)。
+
+```{toctree}
+:hidden:
+:maxdepth: 2
+
+tutorial
+backward_propagation_proof
+publishing
+```
