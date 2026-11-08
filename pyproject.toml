@@ -32,6 +32,21 @@ dependencies = [
     "numpy>=1.18.5",
 ]
 
+[dependency-groups]
+docs = [
+    "sphinx==7.2.6",
+    "myst-parser>=4,<5",
+    "sphinx-autobuild>=2024,<2026",
+    "pytorch-sphinx-theme2",
+    "jieba==0.42.1",
+]
+
+[tool.uv.dependency-groups]
+docs = { requires-python = ">=3.12" }
+
+[tool.uv.sources]
+pytorch-sphinx-theme2 = { git = "https://github.com/pytorch/pytorch_sphinx_theme.git", rev = "7252b2bb574a0dd534e7c18bfb41e04182f5d1f6" }
+
 [project.scripts]
 huo-art = "huo.cli:main"
 

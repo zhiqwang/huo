@@ -58,23 +58,7 @@ If you plan to modify the code or documentation, please follow the steps below:
 
 ### Code formatting
 
-Contributions should be compatible with Python 3.X versions and be compliant with PEP8. We have already installed the [pre-commit service](https://github.com/apps/pre-commit-ci) to auto fix the pull requests. If you want to check the codebase locally, please either run
-
-```bash
-pre-commit run --all-files
-```
-
-or run
-
-```bash
-pre-commit install
-```
-
-once to perform these checks automatically before every `git commit`. If `pre-commit` is not available you can install it with
-
-```bash
-pip install pre-commit
-```
+Contributions should be compatible with the supported Python versions and follow PEP 8.
 
 ### Unit tests
 

@@ -2,12 +2,11 @@
 
 本站由 `docs/` 下的 Markdown 文件生成，使用 Sphinx 和 PyTorch Sphinx Theme 2，发布地址为 [zhiqwang.github.io/huo](https://zhiqwang.github.io/huo/)。行内公式与块公式通过 MathJax 渲染，支持证明文章中的矩阵、分段函数和公式编号。
 
-在仓库根目录执行以下命令，使用 Python 3.12 创建独立的文档环境：
+在仓库根目录执行以下命令，使用 uv 和 Python 3.12 安装文档依赖：
 
 ```bash
-python3.12 -m venv .venv-docs
-.venv-docs/bin/python -m pip install -r requirements-docs.txt
-.venv-docs/bin/sphinx-autobuild docs site
+uv sync --locked --only-group docs --python 3.12
+uv run --locked --only-group docs sphinx-autobuild docs site
 ```
 
 本地预览地址为 [http://127.0.0.1:8000/](http://127.0.0.1:8000/)。sphinx-autobuild 会在修改文档时自动重新构建。
@@ -15,10 +14,10 @@ python3.12 -m venv .venv-docs
 发布前使用与工作流相同的严格构建命令：
 
 ```bash
-.venv-docs/bin/python -m sphinx -b html -W --keep-going docs site
+uv run --locked --only-group docs sphinx-build -b html -W --keep-going docs site
 ```
 
-生成的静态文件保存在 `site/`。文档环境和构建产物均被 Git 忽略。
+生成的静态文件保存在 `site/`。uv 环境 `.venv/` 和构建产物均被 Git 忽略。文档依赖在 `pyproject.toml` 的 `docs` 依赖组中定义，并通过 `uv.lock` 锁定；修改依赖后运行 `uv lock`。
 
 添加文章时，将 Markdown 文件放入 `docs/`，并在 `docs/index.md` 的 `toctree` 中添加导航项。站内链接使用相对 Markdown 路径，例如 `[教程](tutorial.md)`；指向 `docs/` 外部源码的链接使用 GitHub 文件地址，避免发布后指向不存在的站内路径。
 
