@@ -1,0 +1,4 @@
+/* Keep wide equations readable on narrow screens. */
+.math {
+  overflow-x: auto;
+}
