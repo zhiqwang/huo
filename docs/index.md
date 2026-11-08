@@ -1,20 +1,27 @@
-# Huo 文档
+# Huo Documentation
 
-Huo 是一个用于扇束 CT 正向投影与迭代图像重建的项目，提供 Python / PyTorch 实现和 TypeScript / jax-js 浏览器演示。
+Huo provides fan-beam CT forward projection and iterative image reconstruction,
+with a Python / PyTorch implementation and a TypeScript / jax-js browser demo.
 
-- [使用教程（English）](tutorial.md)：几何参数、正向投影、图像重建以及浏览器演示的使用方法。
-- [反向投影的数学证明](backward_propagation_proof.md)：残差回填的几何解释、与严格 ART 的等价条件，以及离散迭代的收敛条件和反例。
-- [文档维护与发布](publishing.md)：本地预览、添加文章和通过 GitHub Actions 发布文档。
+- [Tutorial](tutorial.md): geometry, forward projection, reconstruction, and the browser demo.
+- [Residual Backprojection: Proofs and Limits](backward_propagation_proof.md):
+  geometry, the connection to ART, convergence conditions, implementation findings,
+  and executable Lean proofs.
+- [Maintaining and Publishing Documentation](publishing.md): local previews,
+  mathematical notation, proof checks, and GitHub Actions deployment.
 
-首次使用项目可以从教程开始。若关注 `backward_propagation` 为什么能用于重建，数学文章会从源码对应的算子出发，逐步给出假设与证明。
+Start with the tutorial to use the project. For the mathematical justification
+of `backward_propagation`, the proof article states the assumptions and separates
+continuous geometry from the sampled implementation.
 
-源码、安装说明和问题反馈见 [GitHub 仓库](https://github.com/zhiqwang/huo)。
+Source code, installation instructions, and issue tracking are available in the
+[GitHub repository](https://github.com/zhiqwang/huo).
 
 ```{toctree}
 :hidden:
 :maxdepth: 2
 
-tutorial
-backward_propagation_proof
-publishing
+Tutorial <tutorial>
+Residual Backprojection: Proofs and Limits <backward_propagation_proof>
+Maintaining and Publishing Documentation <publishing>
 ```

@@ -22,8 +22,11 @@ At each iteration the algorithm:
 3. **Back-projects** that residual into image space to correct the estimate.
 4. **Clamps** negative values to zero.
 
-Angles are visited in random order (the Kaczmarz method). After one pass
-through all angles the reconstruction is typically close to the original image.
+Angles are visited in random order during one sweep from a zero image. The
+implementation uses an ART-inspired update for each angle; equivalence to
+Kaczmarz row projections and convergence require additional assumptions. See
+the [mathematical analysis](docs/backward_propagation_proof.md) for the precise
+conditions, implementation limits, and executable Lean proofs.
 
 ## Installation
 

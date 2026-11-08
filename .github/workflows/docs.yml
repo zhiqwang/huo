@@ -5,6 +5,7 @@ on:
     branches: [main]
     paths:
       - "docs/**"
+      - "lean/**"
       - "pyproject.toml"
       - "uv.lock"
       - ".github/workflows/docs.yml"
@@ -12,6 +13,7 @@ on:
     branches: [main]
     paths:
       - "docs/**"
+      - "lean/**"
       - "pyproject.toml"
       - "uv.lock"
       - ".github/workflows/docs.yml"
@@ -25,6 +27,31 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  proofs:
+    name: Check Lean proofs
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+
+      - name: Set up Lean
+        uses: leanprover/lean-action@v1
+        with:
+          lake-package-directory: lean
+          auto-config: false
+          build: false
+          test: false
+          lint: false
+          use-mathlib-cache: false
+
+      - name: Fetch proof dependencies and check all proofs
+        working-directory: lean
+        run: |
+          lake exe cache get Mathlib.Analysis.SpecificLimits.Basic Mathlib.Analysis.InnerProductSpace.Basic \
+            Mathlib.Tactic.FieldSimp Mathlib.Tactic.Linarith Mathlib.Tactic.NormNum Mathlib.Tactic.Ring
+          lake build
+
   build:
     name: Build documentation
     runs-on: ubuntu-latest
@@ -56,7 +83,7 @@ jobs:
   deploy:
     name: Deploy to GitHub Pages
     if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
-    needs: build
+    needs: [build, proofs]
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:

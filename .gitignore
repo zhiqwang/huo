@@ -112,6 +112,9 @@ site/
 .venv/
 doxygen
 
+# Lean dependencies and compiled proofs
+lean/.lake/
+
 # LevelDB files
 *.sst
 *.ldb
