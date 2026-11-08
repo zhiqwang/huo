@@ -1,34 +1,110 @@
-# 文档维护与发布
+# Maintaining and Publishing Documentation
 
-本站由 `docs/` 下的 Markdown 文件生成，使用 Sphinx 和 PyTorch Sphinx Theme 2，发布地址为 [zhiqwang.github.io/huo](https://zhiqwang.github.io/huo/)。行内公式与块公式通过 MathJax 渲染，支持证明文章中的矩阵、分段函数和公式编号。
+The site is generated from Markdown files in `docs/` with Sphinx and PyTorch
+Sphinx Theme 2. It is published at
+[zhiqwang.github.io/huo](https://zhiqwang.github.io/huo/). The site language,
+page titles, header, navigation, and search interface are English.
 
-在仓库根目录执行以下命令，使用 uv 和 Python 3.12 安装文档依赖：
+## Local preview and strict build
+
+From the repository root, install the documentation dependencies with uv and
+Python 3.12:
 
 ```bash
 uv sync --locked --only-group docs --python 3.12
-uv run --locked --only-group docs sphinx-autobuild docs site
+uv run --locked --only-group docs sphinx-autobuild -a --host 0.0.0.0 --port 8000 docs site
 ```
 
-本地预览地址为 [http://127.0.0.1:8000/](http://127.0.0.1:8000/)。sphinx-autobuild 会在修改文档时自动重新构建。
+Open [http://127.0.0.1:8000/](http://127.0.0.1:8000/) locally, or use the host
+machine's IP address and port 8000 from another device. The preview rebuilds
+when source files change. The `-a` flag also refreshes the output when only CSS
+or templates change, so the browser receives the updated layout.
 
-发布前使用与工作流相同的严格构建命令：
+Before publishing, run the same strict build used in CI:
 
 ```bash
 uv run --locked --only-group docs sphinx-build -b html -W --keep-going docs site
 ```
 
-生成的静态文件保存在 `site/`。uv 环境 `.venv/` 和构建产物均被 Git 忽略。文档依赖在 `pyproject.toml` 的 `docs` 依赖组中定义，并通过 `uv.lock` 锁定；修改依赖后运行 `uv lock`。
+The output is written to `site/`. Both that directory and `.venv/` are ignored
+by Git. Documentation dependencies are defined in the `docs` group in
+`pyproject.toml` and locked in `uv.lock`; run `uv lock` after changing them.
 
-添加文章时，将 Markdown 文件放入 `docs/`，并在 `docs/index.md` 的 `toctree` 中添加导航项。站内链接使用相对 Markdown 路径，例如 `[教程](tutorial.md)`；指向 `docs/` 外部源码的链接使用 GitHub 文件地址，避免发布后指向不存在的站内路径。
+## Adding articles and mathematical notation
 
-数学公式可以使用 `$...$` 和独占行的 `$$...$$`。Sphinx 使用 MathJax 渲染公式；相关配置位于 `docs/conf.py`。
+Place new Markdown articles in `docs/` and add their navigation entries to
+the `toctree` in `docs/index.md`. Use concise English navigation titles and
+relative Markdown links within the site, such as `[Tutorial](tutorial.md)`.
+For source files outside `docs/`, use GitHub file links so deployed links do
+not point to nonexistent site paths.
 
-首次配置仓库时，在 [Settings → Pages](https://github.com/zhiqwang/huo/settings/pages) 中把 **Build and deployment → Source** 设为 **GitHub Actions**。使用自定义 Pages 工作流之前需要启用这一发布来源，见 [GitHub 官方说明](https://docs.github.com/en/pages/getting-started-with-github-pages/using-custom-workflows-with-github-pages)。
+Use `$...$` for inline mathematics and `$$...$$` on separate lines for display
+mathematics. The MyST `dollarmath` extension parses both forms; MathJax renders
+matrices, cases, and explicit `\tag{...}` equation numbers. Configuration is
+in `docs/conf.py`. Headings generate the article's table of contents in the
+right sidebar, while the `toctree` supplies the left navigation.
 
-[Deploy documentation 工作流](https://github.com/zhiqwang/huo/actions/workflows/docs.yml) 的行为如下：
+Inside mathematics, write code identifiers with `\mathtt{img\_end}`. This
+renders the underscore correctly with the site's MathJax configuration. Use
+ordinary Markdown backticks for identifiers outside mathematics.
 
-- Pull request 修改文档、Sphinx 配置、文档依赖或该工作流时，执行严格构建检查。
-- 同类变更推送到 `main` 时，构建站点、上传 Pages artifact，再部署到 `github-pages` 环境。
-- 在 Actions 页面选择 **Run workflow**，并选择 `main`，可以手动重新发布；选择其他分支只执行构建。
+For a tagged equation containing matrix rows or other `\\` line breaks, use
+an explicit equation environment with `:nowrap:`. This prevents Sphinx from
+placing the tag inside a `split` environment, which MathJax rejects:
 
-部署任务只在构建通过后运行，使用 GitHub 自带的 `GITHUB_TOKEN` 和 OIDC 权限，无须配置个人访问令牌。部署状态与站点链接会显示在工作流的 `github-pages` 环境中。
+````markdown
+```{math}
+:nowrap:
+
+\begin{equation}
+A=\begin{pmatrix}1&2\\2&1\end{pmatrix}.
+\tag{1}
+\end{equation}
+```
+````
+
+## Checking the Lean proofs
+
+The proof project is in `lean/` and pins Lean and Mathlib to v4.24.0. Install
+Lean's `elan` toolchain manager, then run:
+
+```bash
+cd lean
+lake exe cache get Mathlib.Analysis.SpecificLimits.Basic Mathlib.Analysis.InnerProductSpace.Basic \
+  Mathlib.Tactic.FieldSimp Mathlib.Tactic.Linarith Mathlib.Tactic.NormNum Mathlib.Tactic.Ring
+lake build
+```
+
+The first command downloads the Mathlib artifacts needed by the proof imports.
+The second checks the default `Huo` library, which imports every project proof.
+Project warnings are errors, so incomplete proofs fail the build. Keep
+`lean-toolchain`, `lakefile.toml`, and `lake-manifest.json` together when updating
+versions. Dependencies and compiled output in `lean/.lake/` are ignored by Git.
+See [Lean project setup](https://leanprover-community.github.io/install/project.html)
+for installation details.
+
+The [proof article](backward_propagation_proof.md#lean-proofs)
+lists the formalized results and the limits of their coverage. Its Lean excerpt
+uses `literalinclude` to read the actual source. Update the coverage table when
+adding or changing theorems; a successful documentation build alone does not
+check a Lean proof.
+
+## GitHub Pages deployment
+
+For initial repository setup, select **GitHub Actions** under **Build and
+deployment → Source** in
+[Settings → Pages](https://github.com/zhiqwang/huo/settings/pages). See
+[GitHub's custom workflow instructions](https://docs.github.com/en/pages/getting-started-with-github-pages/using-custom-workflows-with-github-pages).
+
+The [Deploy documentation workflow](https://github.com/zhiqwang/huo/actions/workflows/docs.yml)
+runs for changes to documentation, Lean sources, documentation dependencies,
+or the workflow itself:
+
+- Pull requests run a strict Sphinx build and check the Lean proofs.
+- Pushes to `main` build the site and upload the Pages artifact. Deployment
+  waits for both the documentation and proof jobs to succeed.
+- **Run workflow** on `main` republishes manually; selecting another branch
+  runs the checks without deploying.
+
+Deployment uses GitHub's `GITHUB_TOKEN` and OIDC permissions without a personal
+access token. Its status and site URL appear in the `github-pages` environment.

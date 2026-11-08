@@ -42,8 +42,14 @@ algorithm repeats the following for each angle θ in random order:
 4. I          ← clamp(I + correction, 0, ∞) # update and enforce non-negativity
 ```
 
-This is the **Kaczmarz method** applied to the CT linear system. Visiting
-angles in random order improves convergence.
+This implementation uses an ART-inspired update for an entire angle at once.
+It equals a sequence of Kaczmarz row projections only under additional weight
+and support assumptions. Random angle ordering alone does not establish
+convergence. See [Residual Backprojection: Proofs and Limits](backward_propagation_proof.md)
+for the assumptions, counterexamples, and Lean proofs.
+
+Each Python `art()` call starts from zero and makes one sweep through the
+angles. Repeated calls do not continue the previous estimate.
 
 ### Forward Projection
 
@@ -279,4 +285,3 @@ parameter for animation purposes.
 | SDD | `--sdd` | `sdd` | 1200 | mm | Source-to-detector distance |
 | SOD | `--sod` | `sod` | 981 | mm | Source-to-object (rotation centre) distance |
 | Rotation step | `--rotate-step` | `rotateStep` | 1.0 | deg | Angular step between successive projections |
-| Max epochs | `--max-epoch` | — | 10 | — | Number of full ART passes (Python CLI only) |

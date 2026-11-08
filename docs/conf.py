@@ -4,13 +4,13 @@ from pathlib import Path
 
 import pydata_sphinx_theme
 
-project = "Huo 文档"
-language = "zh_CN"
+project = "Huo Documentation"
+language = "en"
 root_doc = "index"
 extensions = ["myst_parser"]
 source_suffix = {".md": "markdown"}
 exclude_patterns = ["_templates/**", "_static/**"]
-myst_enable_extensions = ["attrs_inline", "colon_fence"]
+myst_enable_extensions = ["attrs_inline", "colon_fence", "dollarmath"]
 myst_heading_anchors = 6
 
 html_theme = "pytorch_sphinx_theme2"
