@@ -1,8 +1,9 @@
 # Copyright (c) 2022, Zhiqiang Wang. All rights reserved.
 
-"""Command-line interface for CT reconstruction with ART."""
+"""Command-line interface using the same geometry names and units as the API."""
 
 import argparse
+import math
 
 import numpy as np
 import torch
@@ -13,76 +14,54 @@ from huo.radon import RadonFanbeam
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="huo-art",
-        description="CT image reconstruction using the Algebraic Reconstruction Technique (ART)",
+        description="Fan-beam residual reconstruction; angles in radians, distances in pixels",
     )
-    parser.add_argument("sinogram", help="path to sinogram file (.npy)")
+    parser.add_argument("sinogram", help="NumPy sinogram with shape [angle, detector]")
+    parser.add_argument("-o", "--output", help="save the reconstructed image as a NumPy array")
+    parser.add_argument("--resolution", default=512, type=int, help="pixels per image axis (default: 512)")
+    parser.add_argument("--source-distance", default=3488.0, type=float, help="source to centre, in pixels")
     parser.add_argument(
-        "-o",
-        "--output",
-        default=None,
-        help="path to save the reconstructed image (.npy). If omitted the result is not saved.",
+        "--det-distance", default=778.6666666666666, type=float, help="centre to detector plane, in pixels"
     )
-    parser.add_argument(
-        "--img-pixels", default=512, type=int, metavar="N", help="image pixels per axis (default: 512)"
+    parser.add_argument("--det-count", default=500, type=int, help="number of detector elements")
+    parser.add_argument("--det-spacing", default=1.28, type=float, help="detector spacing, in pixels")
+    parser.add_argument("--ray-sampling", default=2, type=int, help="integration intervals per pixel")
+    angle_group = parser.add_mutually_exclusive_group()
+    angle_group.add_argument(
+        "--angle-step",
+        default=math.pi / 180,
+        type=float,
+        help="uniform angular step in radians (default: pi/180)",
     )
-    parser.add_argument(
-        "--img-len", default=144, type=float, metavar="MM", help="FOV diameter in mm (default: 144)"
-    )
-    parser.add_argument(
-        "--detr-num", default=500, type=int, metavar="N", help="number of detector elements (default: 500)"
-    )
-    parser.add_argument(
-        "--detr-len", default=180, type=float, metavar="MM", help="detector panel length in mm (default: 180)"
-    )
-    parser.add_argument(
-        "--lat-sampling", default=2, type=int, metavar="N", help="lateral sampling multiplier (default: 2)"
-    )
-    parser.add_argument(
-        "--sdd", default=1200, type=float, metavar="MM",
-        help="source-to-detector distance in mm (default: 1200)",
-    )
-    parser.add_argument(
-        "--sod", default=981, type=float, metavar="MM",
-        help="source-to-object distance in mm (default: 981)",
-    )
-    parser.add_argument(
-        "--rotate-step", default=1.0, type=float, metavar="DEG",
-        help="rotation step in degrees (default: 1.0)",
-    )
+    angle_group.add_argument("--angles", help="NumPy 1-D angle array in radians, in sinogram row order")
     return parser
 
 
 def main(argv=None):
     parser = build_parser()
     args = parser.parse_args(argv)
-
-    # Load sinogram
-    sinogram = np.load(args.sinogram)
-    print(f"sinogram: {sinogram.shape}")
-    sinogram = torch.from_numpy(sinogram)
-
-    # Build RadonFanbeam operator
-    angles = torch.arange(0, 360, step=args.rotate_step)
-    det_spacing = args.detr_len / args.detr_num
-
+    if args.angles is not None:
+        angles = np.load(args.angles)
+    else:
+        if not math.isfinite(args.angle_step) or args.angle_step <= 0:
+            parser.error("angle-step must be positive and finite (in radians)")
+        # Form the angle count in double precision, then round values to float32.
+        angles = np.arange(0, 2 * math.pi, args.angle_step, dtype=np.float64)
     radon = RadonFanbeam(
-        resolution=args.img_pixels,
+        resolution=args.resolution,
         angles=angles,
-        source_distance=args.sod,
-        det_distance=args.sdd - args.sod,
-        det_count=args.detr_num,
-        det_spacing=det_spacing,
-        volume_size=args.img_len,
-        lat_sampling=args.lat_sampling,
+        source_distance=args.source_distance,
+        det_distance=args.det_distance,
+        det_count=args.det_count,
+        det_spacing=args.det_spacing,
+        ray_sampling=args.ray_sampling,
     )
-
-    # Reconstruct
-    img = radon.art(sinogram)
-    print(f"image: {img.shape}")
-
-    # Save output
+    sinogram = torch.from_numpy(np.asarray(np.load(args.sinogram), dtype=np.float32))
+    image = radon.art(sinogram)
+    print(f"sinogram: {tuple(sinogram.shape)} [angle, detector]")
+    print(f"image: {tuple(image.shape)}")
     if args.output is not None:
-        np.save(args.output, img.numpy())
+        np.save(args.output, image.numpy())
         print(f"saved: {args.output}")
 
 

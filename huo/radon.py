@@ -1,37 +1,32 @@
 # Copyright (c) 2022, Zhiqiang Wang. All rights reserved.
 
-"""
-Fan-beam CT Radon transform following the `torch-radon`_ convention.
+"""Fan-beam projection and residual reconstruction in the shared geometry."""
 
-.. _torch-radon: https://torch-radon.readthedocs.io/en/latest/modules/radon.html
-"""
+import math
 
-import numpy as np
 import torch
-import torch.nn.functional as F
 from torch import Tensor
+
+from huo.art import backprojection_angle, forward_angle
+from huo.geometry import FanbeamGeometry, compute_ray_coordinates
 
 
 class RadonFanbeam:
-    """Fan-beam CT forward / back-projection.
+    """A fixed fan-beam scanner with angle-by-detector sinograms.
 
-    Follows the `torch-radon <https://torch-radon.readthedocs.io/en/latest/>`_
-    convention where ``forward`` means Radon transform (image → sinogram) and
-    ``backprojection`` means sinogram → image.
-
-    The constructor pre-computes all fan-beam gantry coordinates so that
-    :meth:`forward`, :meth:`backprojection`, and :meth:`art` only need the
-    image or sinogram tensor.
+    Python, TypeScript, and the mathematical documentation use these names.
+    Angles are radians and all distances are in pixels. At zero angle the
+    source is (0, source_distance), the detector plane is y=-det_distance,
+    and the gantry rotates by R_{-angle}, following torch-radon's convention.
 
     Args:
-        resolution: Number of image pixels along each axis.
-        angles: 1-D tensor (or list) of projection angles in degrees.
-        source_distance: Source-to-object (centre of rotation) distance in mm.
-        det_distance: Object (centre of rotation) to detector distance in mm.
+        resolution: Number of pixels along each image axis.
+        angles: Nonempty 1-D sequence of projection angles in radians.
+        source_distance: Distance from the source to the image centre, in pixels.
+        det_distance: Distance from the image centre to the detector plane, in pixels.
         det_count: Number of detector elements.
-        det_spacing: Spacing between detector elements in mm.
-        volume_size: Diameter of the field of view (FOV) in mm.
-        lat_sampling: Lateral sampling grid multiplier (default 2).
+        det_spacing: Distance between detector centres, in pixels.
+        ray_sampling: Integration intervals per pixel along a ray (default 2).
     """
 
     def __init__(
@@ -42,203 +37,84 @@ class RadonFanbeam:
         det_distance: float,
         det_count: int,
         det_spacing: float,
-        volume_size: float,
-        lat_sampling: int = 2,
+        ray_sampling: int = 2,
     ):
-        self.resolution = resolution
-        self.angles = torch.as_tensor(angles, dtype=torch.float32)
-        self.source_distance = source_distance
-        self.det_distance = det_distance
-        self.det_count = det_count
-        self.det_spacing = det_spacing
-        self.volume_size = volume_size
-        self.lat_sampling = lat_sampling
+        self._geometry = FanbeamGeometry(
+            resolution, source_distance, det_distance, det_count, det_spacing, ray_sampling
+        )
+        self._angles = torch.as_tensor(angles, dtype=torch.float32, device="cpu").clone()
+        if self._angles.ndim != 1 or self._angles.numel() == 0 or not torch.isfinite(self._angles).all():
+            raise ValueError("angles must be a nonempty finite 1-D sequence in radians")
+        self._ray_x, self._ray_y = compute_ray_coordinates(self.geometry)
 
-        # Derived geometry quantities (torch-radon naming)
-        # SDD = Source-to-Detector Distance (standard CT abbreviation)
-        self.sdd = source_distance + det_distance
-        self.det_length = det_count * det_spacing
+    @property
+    def geometry(self):
+        """The immutable scanner configuration."""
+        return self._geometry
 
-        img_step = volume_size / resolution
-        self.img_end = (volume_size - img_step) / 2
+    @property
+    def angles(self):
+        """Projection angles in radians, in sinogram row order."""
+        return self._angles.clone()
 
-        det_step = self.det_length / self.det_count
-        self.det_end = (self.det_length - det_step) / 2
+    @staticmethod
+    def _check_tensor(value, shape, name):
+        if not isinstance(value, Tensor) or value.device.type != "cpu" or value.dtype != torch.float32:
+            raise ValueError(f"{name} must be a CPU torch.float32 tensor")
+        if tuple(value.shape) != shape:
+            raise ValueError(f"{name} must have shape {shape}, got {tuple(value.shape)}")
+        if not torch.isfinite(value).all():
+            raise ValueError(f"{name} must contain only finite values")
 
-        # Pre-compute gantry coordinates
-        self._gantry_coor_x, self._gantry_coor_y = self._compute_gantry_coordinates()
+    def forward_angle(self, image: Tensor, angle: float) -> Tensor:
+        """Project an image [resolution, resolution] at one angle in radians."""
+        self._check_tensor(image, (self.geometry.resolution,) * 2, "image")
+        if not math.isfinite(angle):
+            raise ValueError("angle must be finite (in radians)")
+        return forward_angle(image, self._ray_x, self._ray_y, angle, self.geometry)
 
-    # ------------------------------------------------------------------
-    # Geometry helpers
-    # ------------------------------------------------------------------
+    def backprojection_angle(self, projection: Tensor, angle: float) -> Tensor:
+        """Uniformly backfill a detector row [det_count] at one angle in radians."""
+        self._check_tensor(projection, (self.geometry.det_count,), "projection")
+        if not math.isfinite(angle):
+            raise ValueError("angle must be finite (in radians)")
+        return backprojection_angle(projection, angle, self.geometry)
 
-    def _compute_gantry_coordinates(self):
-        """Pre-compute fan-beam gantry ray-tracing coordinates.
-
-        Returns a tuple ``(gantry_coor_x, gantry_coor_y)`` each of shape
-        ``[lat_steps, det_count]``, normalised to [-1, 1].
-        """
-        src_y = -self.source_distance
-
-        det_coor_x = torch.linspace(-self.det_end, self.det_end, steps=self.det_count)
-        det_coor_y = torch.zeros_like(det_coor_x) + self.sdd - self.source_distance
-
-        lat_end = self.volume_size / 2
-        lat_steps = self.lat_sampling * self.resolution + 1
-        lat_grid = torch.linspace(-lat_end, lat_end, steps=lat_steps).unsqueeze(1)
-
-        # Shift origin to X-ray source position
-        lat_grid = lat_grid - src_y
-        det_coor_y = det_coor_y - src_y
-
-        # Fan-beam distances
-        fan_dist = (det_coor_x**2 + det_coor_y**2).sqrt()
-
-        # Gantry coordinates [lat_steps, det_count]
-        gantry_coor_x = lat_grid * det_coor_x / fan_dist
-        gantry_coor_y = lat_grid * det_coor_y / fan_dist + src_y
-
-        # Normalise to [-1, 1] for F.grid_sample
-        gantry_coor_x = gantry_coor_x / self.img_end
-        gantry_coor_y = gantry_coor_y / self.img_end
-
-        return gantry_coor_x, gantry_coor_y
-
-    # ------------------------------------------------------------------
-    # Per-angle projections
-    # ------------------------------------------------------------------
-
-    def _forward_angle(self, img: Tensor, angle: float) -> Tensor:
-        """Forward-project the image at a single angle.
-
-        Args:
-            img: 2-D image tensor ``[resolution, resolution]``.
-            angle: Projection angle in degrees.
-
-        Returns:
-            Sinogram column ``[det_count]``.
-        """
-        img = img.unsqueeze(0).unsqueeze(0)
-        rad = torch.tensor([angle * np.pi / 180.0])
-
-        cos_a = torch.cos(rad)
-        sin_a = torch.sin(rad)
-
-        rot_x = self._gantry_coor_x * cos_a - self._gantry_coor_y * sin_a
-        rot_y = self._gantry_coor_x * sin_a + self._gantry_coor_y * cos_a
-
-        rot_x = rot_x.unsqueeze(0).unsqueeze(3)
-        rot_y = rot_y.unsqueeze(0).unsqueeze(3)
-        samples = torch.cat([rot_x, rot_y], 3)
-
-        interp = F.grid_sample(img, samples, align_corners=True)
-        interp = interp.squeeze(0).squeeze(0)
-
-        lat_step = self.volume_size / self.resolution / self.lat_sampling
-        return lat_step * torch.sum(interp, dim=0)
-
-    def _backprojection_angle(self, sinogram_col: Tensor, angle: float) -> Tensor:
-        """Back-project a sinogram column at a single angle.
-
-        Args:
-            sinogram_col: Tensor of shape ``[1, 1, det_count]``.
-            angle: Projection angle in degrees.
-
-        Returns:
-            Image tensor ``[resolution, resolution]``.
-        """
-        sinogram_col = sinogram_col.unsqueeze(3)
-        rad = torch.tensor([angle * np.pi / 180.0])
-
-        theta = torch.tensor(
-            [[torch.cos(rad), torch.sin(rad), 0], [-torch.sin(rad), torch.cos(rad), 0]]
-        ).unsqueeze(0)
-
-        P = self.resolution
-        img_grid_rot = F.affine_grid(theta, (1, 1, P, P)).squeeze(0)
-        grid_x = img_grid_rot[:, :, 0]
-        grid_y = img_grid_rot[:, :, 1]
-
-        grid_y = grid_y + self.source_distance / self.img_end
-        det_positions = self.sdd * grid_x / grid_y
-        det_positions /= self.det_end
-        det_positions = det_positions.reshape(-1, 1)
-        det_positions = det_positions.unsqueeze(2).unsqueeze(0)
-        samples = torch.cat([torch.zeros_like(det_positions), det_positions], 3)
-
-        img = F.grid_sample(sinogram_col, samples, align_corners=True)
-        img = img.squeeze(0).squeeze(0)
-        img = img.reshape(P, P)
-
-        return img
-
-    # ------------------------------------------------------------------
-    # Public API (torch-radon convention)
-    # ------------------------------------------------------------------
-
-    def forward(self, img: Tensor) -> Tensor:
-        """Forward projection (Radon transform) over all angles.
-
-        Corresponds to ``RadonFanbeam.forward`` in torch-radon.
-
-        Args:
-            img: 2-D image tensor ``[resolution, resolution]``.
-
-        Returns:
-            Sinogram tensor ``[det_count, num_angles]``.
-        """
-        num_angles = len(self.angles)
-        sinogram = torch.zeros(self.det_count, num_angles)
-        sinogram = sinogram.unsqueeze(0).unsqueeze(0)
-
-        for i, angle in enumerate(self.angles):
-            sinogram[:, :, :, i] = self._forward_angle(img, angle.item())
-
-        return sinogram.squeeze(0).squeeze(0)
+    def forward(self, image: Tensor) -> Tensor:
+        """Project an image to a sinogram [len(angles), det_count]."""
+        self._check_tensor(image, (self.geometry.resolution,) * 2, "image")
+        return torch.stack(
+            [
+                forward_angle(image, self._ray_x, self._ray_y, angle.item(), self.geometry)
+                for angle in self._angles
+            ]
+        )
 
     def backprojection(self, sinogram: Tensor) -> Tensor:
-        """Back-projection (sinogram → image) summed over all angles.
+        """Sum uniform backfill over all sinogram rows [len(angles), det_count].
 
-        Corresponds to ``RadonFanbeam.backprojection`` in torch-radon.
-
-        Args:
-            sinogram: Sinogram tensor ``[det_count, num_angles]``.
-
-        Returns:
-            Image tensor ``[resolution, resolution]``.
+        This B operator has no fan-beam weighting and is not the discrete
+        transpose of forward(). See the residual-backprojection proof.
         """
-        P = self.resolution
-        img = torch.zeros(P, P)
-        sinogram_4d = sinogram.unsqueeze(0).unsqueeze(0)
-
-        for i, angle in enumerate(self.angles):
-            col = sinogram_4d[:, :, :, i]
-            img += self._backprojection_angle(col, angle.item())
-
-        return img
+        self._check_tensor(sinogram, (len(self._angles), self.geometry.det_count), "sinogram")
+        image = torch.zeros((self.geometry.resolution,) * 2, dtype=torch.float32)
+        for angle, projection in zip(self._angles, sinogram):
+            image += backprojection_angle(projection, angle.item(), self.geometry)
+        return image
 
     def art(self, sinogram: Tensor) -> Tensor:
-        """Algebraic Reconstruction Technique (ART).
+        """Run one residual-backprojection sweep from zero with nonnegative clipping.
 
-        Iteratively reconstructs the image from the sinogram using the
-        Kaczmarz method (random angle ordering).
-
-        Args:
-            sinogram: Sinogram tensor ``[det_count, num_angles]``.
-
-        Returns:
-            Reconstructed image ``[resolution, resolution]``.
+        Input shape is [len(angles), det_count]. Each row is visited once in
+        random order. The correction is divided by the ray-window length,
+        which is ``resolution`` in pixel units.
         """
-        P = self.resolution
-        sinogram_4d = sinogram.unsqueeze(0).unsqueeze(0)
-        img = torch.zeros(P, P)
-
-        indices = torch.randperm(len(self.angles))
-        for i in indices:
-            angle = self.angles[i].item()
-            residual = sinogram_4d[:, :, :, i] - self._forward_angle(img, angle)
-            residual /= self.volume_size
-            img += self._backprojection_angle(residual, angle)
-            img = torch.clamp(img, min=0)
-
-        return img
+        self._check_tensor(sinogram, (len(self._angles), self.geometry.det_count), "sinogram")
+        image = torch.zeros((self.geometry.resolution,) * 2, dtype=torch.float32)
+        for index in torch.randperm(len(self._angles)):
+            angle = self._angles[index].item()
+            predicted = forward_angle(image, self._ray_x, self._ray_y, angle, self.geometry)
+            residual = (sinogram[index] - predicted) / self.geometry.resolution
+            image += backprojection_angle(residual, angle, self.geometry)
+            image = image.clamp(min=0)
+        return image
