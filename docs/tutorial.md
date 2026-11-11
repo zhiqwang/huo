@@ -107,6 +107,12 @@ np.save("phantom_reconstruction.npy", reconstructed.numpy())
 | `forward_angle(image, angle)` | One detector row `[M]`. |
 | `backprojection_angle(projection, angle)` | One image `[N, N]` from a detector row `[M]`. |
 
+Python additionally provides `adjoint(sinogram)` and
+`adjoint_angle(projection, angle)`, the discrete Euclidean transposes of
+`forward` and `forward_angle`. Both return an image `[N, N]` and preserve the
+forward operator's ray-step and partial zero-padding weights. Use these for
+least-squares data gradients; `backprojection` remains uniform residual backfill.
+
 The sum returned by `backprojection` grows with the number of views. Its scale
 is not directly comparable to the ART estimate. A small projection residual
 measures data agreement, not exact image recovery; see the
@@ -122,6 +128,53 @@ Projection and reconstruction preserve gradients with respect to their input
 tensors. Scanner geometry and angles are fixed. To reconstruct without tracking
 gradients from a tensor with `requires_grad=True`, call `art` inside
 `torch.no_grad()`.
+
+The per-angle operators and their transposes form two pairs of
+`torch.autograd.Function` subclasses. Each backward applies the other member
+of its pair:
+
+| Forward computation | Gradient with respect to its input |
+| --- | --- |
+| `forward_angle`: $A_\theta x$ | $A_\theta^T g$ for a detector-row gradient $g$ |
+| `adjoint_angle`: $A_\theta^T p$ | $A_\theta h$ for an image gradient $h$ |
+| `backprojection_angle`: $B_\theta p$ | $B_\theta^T h$ for an image gradient $h$ |
+| Internal backfill transpose: $B_\theta^T h$ | $B_\theta g$ for a detector-row gradient $g$ |
+
+The uniform backfill $B_\theta$ is not $A_\theta^T$, so these backward passes
+use separate transposes. They recompute fixed sampling weights, retaining
+partial zero-padding weights. The adjoint calls the native bilinear sampling
+VJP directly, using the ATen schema in the pinned PyTorch version. It does not
+replay a forward sampling operation. The backfill transpose uses detector
+scatters. Their paired backward rules also keep per-angle interpolation indices
+and weights out of higher-order graphs.
+
+First and second derivatives with respect to image or projection values are
+supported. The linear operators support `torch.func.grad`, `jvp`, `jacrev`,
+`jacfwd`, `hessian`, and `vmap`, including mapped calls to the public scanner
+methods. Finite-value validation still checks every mapped sample. Angles and
+ray coordinates are fixed and are not differentiated. The implementation uses
+PyTorch CPU operations, without a torch-radon CUDA dependency.
+
+For example, using the image and scanner above:
+
+```python
+image_for_grad = image.detach().requires_grad_()
+loss = radon.forward(image_for_grad).square().mean()
+loss.backward()
+print(image_for_grad.grad.shape)  # torch.Size([64, 64])
+
+# Gradient of 1/2 ||A x - measured||^2, using the explicit adjoint.
+data_gradient = radon.adjoint(radon.forward(image_for_grad) - sinogram)
+
+# Apply the fixed scanner independently to a batch of images.
+batch = torch.stack([image, image])
+batch_sinograms = torch.vmap(radon.forward)(batch)  # [2, V, M]
+```
+
+Run `uv run --locked --group test pytest tests -q` for numerical gradients,
+transform compositions, adjoint identities, and retained-memory regressions.
+Run `uv run --locked python -m benchmarks.autograd` for local CPU timing and
+saved-tensor storage measurements; elapsed-time thresholds are not used in CI.
 
 | Value | Shape | Interpretation |
 | --- | --- | --- |

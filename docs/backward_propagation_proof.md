@@ -750,6 +750,18 @@ physical-coordinate data converts to the current convention. These tests
 establish sampled cases, not $B_\theta=A_\theta^T$ or convergence; the weights
 in (13) and (14) remain different.
 
+The Python autograd wrappers differentiate these two maps separately:
+`RadonForward.backward` applies $A_\theta^T$, while
+`RadonBackprojection.backward` applies $B_\theta^T$. Each transpose is itself
+wrapped in an autograd Function whose backward applies the original operator.
+The Python `adjoint_angle` and `adjoint` methods expose $A_\theta^T$ and $A^T$.
+All these maps use their own forward interpolation weights, including the
+ray-step scale in $A_\theta$ and partial zero-padding weights. The checks in
+`tests/test_autograd.py` compare gradients with explicit sampled matrices and
+finite differences, including second derivatives, transform compositions, and
+multi-angle Hessian-vector products. These gradient identities do not identify
+the uniform backfill $B_\theta$ with $A_\theta^T$.
+
 ### Each call starts from zero and performs one sweep
 
 Both `RadonFanbeam.art` implementations allocate a zero image, visit every

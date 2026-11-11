@@ -7,8 +7,35 @@ import math
 import torch
 from torch import Tensor
 
-from huo.art import backprojection_angle, forward_angle
+from huo.art import adjoint_angle, backprojection_angle, forward_angle
 from huo.geometry import FanbeamGeometry, compute_ray_coordinates
+
+
+class _CheckFinite(torch.autograd.Function):
+    """Validate all mapped samples without a data-dependent branch inside vmap."""
+
+    @staticmethod
+    def forward(value, name):
+        if not torch.isfinite(value).all():
+            raise ValueError(f"{name} must contain only finite values")
+
+    @staticmethod
+    def setup_context(ctx, inputs, output):
+        pass
+
+    @staticmethod
+    def vmap(info, in_dims, value, name):
+        # This level's batch axis is visible here. Applying the check again
+        # also handles outer vmap levels, until all samples can be validated.
+        return _CheckFinite.apply(value, name), None
+
+    @staticmethod
+    def backward(ctx, *grad_outputs):
+        return None, None
+
+    @staticmethod
+    def jvp(ctx, *tangents):
+        return None
 
 
 class RadonFanbeam:
@@ -49,7 +76,10 @@ class RadonFanbeam:
         self._angle_values = tuple(self._angles.tolist())
         self._image_shape = (self.geometry.resolution,) * 2
         self._sinogram_shape = (len(self._angle_values), self.geometry.det_count)
-        self._ray_x, self._ray_y = compute_ray_coordinates(self.geometry)
+        # Keep shared constants usable by autograd even when the scanner is
+        # constructed during inference. This avoids copying them for each view.
+        with torch.inference_mode(False), torch.no_grad():
+            self._ray_x, self._ray_y = compute_ray_coordinates(self.geometry)
 
     @property
     def geometry(self) -> FanbeamGeometry:
@@ -67,8 +97,7 @@ class RadonFanbeam:
             raise ValueError(f"{name} must be a CPU torch.float32 tensor")
         if tuple(value.shape) != shape:
             raise ValueError(f"{name} must have shape {shape}, got {tuple(value.shape)}")
-        if not torch.isfinite(value).all():
-            raise ValueError(f"{name} must contain only finite values")
+        _CheckFinite.apply(value, name)
 
     def forward_angle(self, image: Tensor, angle: float) -> Tensor:
         """Project an image [resolution, resolution] at one angle in radians."""
@@ -83,6 +112,13 @@ class RadonFanbeam:
         if not math.isfinite(angle):
             raise ValueError("angle must be finite (in radians)")
         return backprojection_angle(projection, angle, self.geometry)
+
+    def adjoint_angle(self, projection: Tensor, angle: float) -> Tensor:
+        """Apply the discrete transpose of forward_angle to a detector row [M]."""
+        self._check_tensor(projection, (self.geometry.det_count,), "projection")
+        if not math.isfinite(angle):
+            raise ValueError("angle must be finite (in radians)")
+        return adjoint_angle(projection, self._ray_x, self._ray_y, angle, self.geometry)
 
     def forward(self, image: Tensor) -> Tensor:
         """Project an image to a sinogram [len(angles), det_count]."""
@@ -106,6 +142,18 @@ class RadonFanbeam:
             image += backprojection_angle(projection, angle, self.geometry)
         return image
 
+    def adjoint(self, sinogram: Tensor) -> Tensor:
+        """Apply A^T to a sinogram [len(angles), det_count].
+
+        This is the Euclidean transpose of forward(), including its ray-step
+        and zero-padding weights. No filtering or view averaging is applied.
+        """
+        self._check_tensor(sinogram, self._sinogram_shape, "sinogram")
+        image = sinogram.new_zeros(self._image_shape)
+        for angle, projection in zip(self._angle_values, sinogram):
+            image = image + adjoint_angle(projection, self._ray_x, self._ray_y, angle, self.geometry)
+        return image
+
     def art(self, sinogram: Tensor) -> Tensor:
         """Run one residual-backprojection sweep from zero with nonnegative clipping.
 
@@ -121,7 +169,7 @@ class RadonFanbeam:
             predicted = forward_angle(image, self._ray_x, self._ray_y, angle, self.geometry)
             residual = (sinogram[index] - predicted) / self.geometry.resolution
             if track_grad:
-                # grid_sample saves the previous image for backward.
+                # Keep previous iterates intact when differentiating the sweep.
                 image = (image + backprojection_angle(residual, angle, self.geometry)).clamp_min(0)
             else:
                 image.add_(backprojection_angle(residual, angle, self.geometry)).clamp_min_(0)

@@ -110,6 +110,11 @@ Both languages expose `RadonFanbeam` with these methods:
 | `forward_angle(image, angle)` | `[N, N]` → `[M]` |
 | `backprojection_angle(projection, angle)` | `[M]` → `[N, N]` |
 
+Python also exposes `adjoint(sinogram)` and `adjoint_angle(projection, angle)`
+for the discrete transpose of forward projection. Uniform `backprojection`
+has its own transpose. These linear Python operators support input gradients,
+higher-order derivatives, and `torch.func` transforms, including `vmap`.
+
 | Field | Meaning |
 | --- | --- |
 | `resolution` | $N$: image pixels per axis |
