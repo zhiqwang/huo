@@ -11,7 +11,7 @@ from huo import RadonFanbeam
 from huo.cli import main
 
 
-@pytest.mark.parametrize("method", ["forward", "backprojection", "art"])
+@pytest.mark.parametrize("method", ["forward", "backprojection", "adjoint", "art"])
 def test_zero_input_and_output_shape(radon, method):
     n, m, v = radon.geometry.resolution, radon.geometry.det_count, len(radon.angles)
     data = torch.zeros((n, n) if method == "forward" else (v, m))
@@ -20,7 +20,7 @@ def test_zero_input_and_output_shape(radon, method):
     assert torch.count_nonzero(result) == 0
 
 
-@pytest.mark.parametrize("method", ["forward", "backprojection"])
+@pytest.mark.parametrize("method", ["forward", "backprojection", "adjoint"])
 def test_signed_linearity(radon, method):
     shape = (radon.geometry.resolution,) * 2 if method == "forward" else (len(radon.angles), 20)
     generator = torch.Generator().manual_seed(42)
@@ -47,7 +47,7 @@ def test_backprojection_sums_angle_rows(radon):
     torch.testing.assert_close(radon.backprojection(sinogram), expected)
 
 
-@pytest.mark.parametrize("method", ["forward", "backprojection"])
+@pytest.mark.parametrize("method", ["forward", "backprojection", "adjoint"])
 def test_nonnegative_weights(radon, method):
     shape = (16, 16) if method == "forward" else (12, 20)
     assert (getattr(radon, method)(torch.ones(shape)) >= 0).all()
@@ -124,7 +124,7 @@ def test_geometry_cannot_diverge_from_cached_rays(radon):
     torch.testing.assert_close(radon.angles, original)
 
 
-@pytest.mark.parametrize("method", ["backprojection", "art"])
+@pytest.mark.parametrize("method", ["backprojection", "adjoint", "art"])
 def test_rejects_detector_by_angle_layout(radon, method):
     with pytest.raises(ValueError, match="shape"):
         getattr(radon, method)(torch.zeros(20, 12))
@@ -137,6 +137,34 @@ def test_rejects_detector_by_angle_layout(radon, method):
 def test_rejects_invalid_image(radon, bad_image):
     with pytest.raises(ValueError):
         radon.forward(bad_image)
+
+
+@pytest.mark.parametrize("resolution", [5, 6])
+@pytest.mark.parametrize("ray_sampling", [1, 2, 3])
+def test_adjoint_matches_forward_inner_product(resolution, ray_sampling):
+    scanner = RadonFanbeam(resolution, [0.37, math.pi / 2, -0.41], 24, 12, 9, 1.3, ray_sampling)
+    generator = torch.Generator().manual_seed(42)
+    image = torch.randn(resolution, resolution, generator=generator).T
+    sinogram = torch.randn(3, 18, generator=generator)[:, ::2]
+    actual = scanner.adjoint(sinogram)
+    expected = sum(scanner.adjoint_angle(row, angle.item()) for row, angle in zip(sinogram, scanner.angles))
+    torch.testing.assert_close(actual, expected)
+    torch.testing.assert_close(
+        (scanner.forward(image) * sinogram).sum(), (image * actual).sum(), atol=2e-5, rtol=2e-5
+    )
+    variable = image.detach().requires_grad_()
+    (gradient,) = torch.autograd.grad(scanner.forward(variable), variable, sinogram)
+    torch.testing.assert_close(actual, gradient)
+
+
+@pytest.mark.parametrize("method", ["forward", "backprojection", "adjoint"])
+@pytest.mark.parametrize("invalid", [float("nan"), float("inf")])
+def test_vmapped_public_operators_still_reject_nonfinite_values(radon, method, invalid):
+    shape = (16, 16) if method == "forward" else (12, 20)
+    data = torch.zeros(2, *shape)
+    data[1, 0, 0] = invalid
+    with pytest.raises(ValueError, match="finite"):
+        torch.vmap(getattr(radon, method))(data)
 
 
 def test_cli_accepts_explicit_radian_angle_file(tmp_path):

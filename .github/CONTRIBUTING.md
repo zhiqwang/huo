@@ -37,7 +37,7 @@ and configures its CPU package index:
 ```bash
 git clone https://github.com/zhiqwang/huo.git
 cd huo
-uv sync --locked --python 3.12
+uv sync --locked --group test --python 3.12
 source .venv/bin/activate
 ```
 
@@ -60,15 +60,23 @@ Contributions should be compatible with the supported Python versions and follow
 If you have modified the code by adding a new feature or a bug-fix, please add unit tests for that. To run a specific test:
 
 ```bash
-pytest test/<test-module.py> -vvv -k <test_myfunc>
-# e.g. pytest test/test_models.py -vvv -k test_huo
+uv run --locked --group test pytest tests/test_autograd.py -q
 ```
 
 If you would like to run all tests:
 
 ```bash
-pytest test -vvv
+uv run --locked --group test pytest tests -q
 ```
+
+Run `npm --prefix packages ci` and `npm --prefix packages test` to build and
+test the TypeScript operators before pytest; this enables the Python/TypeScript
+parity checks. CI runs both suites on Python 3.11 and 3.12.
+
+For CPU timing and retained autograd storage, run
+`uv run --locked python -m benchmarks.autograd`. The benchmark reports the
+scanner dimensions and thread count with its results. Numerical and retained
+storage checks run in CI; timings are for local comparison.
 
 ### Documentation
 
