@@ -2,11 +2,14 @@ import math
 
 import pytest
 
-from huo import FanbeamGeometry, FanbeamProjector
+from huo import FanbeamGeometry
 
 
 @pytest.fixture
 def projector():
+    pytest.importorskip("torch")
+    from huo.torch import FanbeamProjector
+
     geometry = FanbeamGeometry(
         resolution=16,
         source_distance=109,

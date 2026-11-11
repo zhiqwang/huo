@@ -49,12 +49,14 @@ python -m http.server 8000 --bind 0.0.0.0 --directory site
 `docs/demo/index.md` includes the interactive component from
 `packages/demo/index.html`; Sphinx provides its page layout. The shared CSS in
 `packages/demo/static/demo.css` uses the theme's color variables. The
-`build:docs` script compiles modules into the ignored `packages/dist/`
+`build:docs` script cleans and compiles modules into the ignored `packages/dist/`
 directory, and Sphinx copies those modules through `html_extra_path`.
 The `demo/` and `src/` directories stay next to each other so relative imports
 work under the `/huo/` GitHub Pages prefix. Keep the standalone HTML out of
 the build output so it does not overwrite Sphinx's `demo/index.html`.
-The demo loads jax-js from `esm.sh`; visitors need access to that CDN.
+The ordinary `build` also copies the standalone HTML/CSS into `dist/demo/`.
+`build:docs` removes that HTML so Sphinx retains ownership of `demo/index.html`.
+The demo loads jax-js and Optax from `esm.sh`; visitors need access to that CDN.
 
 ## Adding articles and mathematical notation
 

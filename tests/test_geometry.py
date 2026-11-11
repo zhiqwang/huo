@@ -2,32 +2,34 @@
 
 import math
 
+import numpy as np
 import pytest
-import torch
-import torch.nn.functional as F
 
-from huo import FanbeamGeometry, FanbeamProjector
+from huo import FanbeamGeometry
 from huo.geometry import compute_ray_coordinates
 
 
 @pytest.mark.parametrize("resolution", [5, 6])
-@pytest.mark.parametrize("dtype,tolerance", [(torch.float32, 2e-6), (torch.float64, 1e-12)])
+@pytest.mark.parametrize("dtype,tolerance", [(np.float32, 2e-6), (np.float64, 1e-12)])
 def test_ray_samples_follow_source_to_detector(resolution, dtype, tolerance):
     geometry = FanbeamGeometry(resolution, 20, 16, 31, 1.3)
     ray_x, ray_y = compute_ray_coordinates(geometry, dtype=dtype)
-    x, y = ray_x.double() * geometry.pixel_extent, ray_y.double() * geometry.pixel_extent
-    u = (torch.arange(31, dtype=torch.float64) - 15) * 1.3
+    x, y = ray_x.astype(np.float64) * geometry.pixel_extent, ray_y.astype(np.float64) * geometry.pixel_extent
+    u = (np.arange(31, dtype=np.float64) - 15) * 1.3
     cross = -36 * x - u * (y - 20)
-    distance = cross / torch.sqrt(u.square() + 36**2)
-    torch.testing.assert_close(distance, torch.zeros_like(distance), atol=tolerance, rtol=0)
-    expected_t = 20 - resolution / 2 + torch.arange(2 * resolution + 1, dtype=torch.float64) / 2
-    torch.testing.assert_close(
-        torch.hypot(x, y - 20), expected_t[:, None].expand_as(x), atol=tolerance, rtol=0
+    distance = cross / np.sqrt(u**2 + 36**2)
+    np.testing.assert_allclose(distance, 0, atol=tolerance, rtol=0)
+    expected_t = 20 - resolution / 2 + np.arange(2 * resolution + 1, dtype=np.float64) / 2
+    np.testing.assert_allclose(
+        np.hypot(x, y - 20), np.broadcast_to(expected_t[:, None], x.shape), atol=tolerance, rtol=0
     )
 
 
 @pytest.mark.parametrize("resolution", [5, 6])
 def test_forward_quarter_turn_has_the_public_radian_sign(resolution):
+    torch = pytest.importorskip("torch")
+    from huo.torch import FanbeamProjector
+
     projector = FanbeamProjector(FanbeamGeometry(resolution, 20, 16, 31, 1.3), [0, math.pi / 2])
     image = torch.arange(resolution**2, dtype=torch.float32).reshape(resolution, resolution) / 10 - 1
     torch.testing.assert_close(
@@ -55,6 +57,10 @@ def test_invalid_geometry(field, value):
 
 
 def test_physical_units_and_opposite_scanner_orientation():
+    torch = pytest.importorskip("torch")
+    import torch.nn.functional as F
+    from huo.torch import FanbeamProjector
+
     # Independent integration in mm with the source on -y. The conversion
     # changes length units, angle convention, detector order, and line-integral scale.
     n, m, length, source, detector = 6, 11, 12.0, 40.0, 16.0

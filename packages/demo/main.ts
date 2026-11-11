@@ -1,36 +1,16 @@
-// Copyright (c) 2022, Zhiqiang Wang. All rights reserved.
-//
-// Demo: CT forward projection (Radon transform) and ART reconstruction with
-// interactive, frame-by-frame visualisation.
-//
-// Generates a phantom image, forward-projects it angle-by-angle to create a
-// sinogram (with live canvas updates), then reconstructs the image using the
-// ART algorithm — again with live canvas updates.
-//
-// Terminology follows the torch-radon convention:
-//   forward()       → Radon transform  (image → sinogram)
-//   backprojection() → uniform backfill (sinogram → image)
-//
-// Ported from tools/projection.py.
+// Native autodiff remains in the operator; asynchronous rendering lives here.
+import { defaultDevice, init, jit, numpy as np, tree } from "@jax-js/jax";
+import { FanbeamGeometry, FanbeamProjector, project, reconstruct } from "../src/index.js";
 
-import { init, numpy } from "@jax-js/jax";
-import { RadonFanbeam } from "../src/art.js";
-
-const np = numpy;
-
-// ── Scanner geometry: radians, pixel units, [angle, detector] sinograms ────────
-
-const radon = new RadonFanbeam({
-  resolution: 128,
-  angles: Array.from({ length: 180 }, (_, index) => index * Math.PI / 90),
-  source_distance: 872,
-  det_distance: 194.66666666666666,
-  det_count: 200,
-  det_spacing: 0.8,
+const geometry = new FanbeamGeometry({
+  resolution: 64,
+  source_distance: 256,
+  det_distance: 128,
+  det_count: 80,
+  det_spacing: 1.3,
   ray_sampling: 2,
 });
-
-// ── Phantom Generation ───────────────────────────────────────────────────────
+const angles = Array.from({ length: 60 }, (_, index) => (index * Math.PI) / 30);
 
 /**
  * Create a simplified Shepp-Logan-style phantom.
@@ -87,7 +67,7 @@ function createPhantom(size: number): Float32Array {
  */
 function renderToCanvas(
   canvasId: string,
-  data: Float32Array,
+  data: Float32Array | Float64Array,
   width: number,
   height: number,
   maxVal?: number,
@@ -117,95 +97,87 @@ function renderToCanvas(
   ctx.putImageData(imageData, 0, 0);
 }
 
-
-// ── Helpers ───────────────────────────────────────────────────────────────────
-
-/** Read the current frame-delay value from the slider (ms). */
-function getDelay(): number {
-  return Number((document.getElementById("delaySlider") as HTMLInputElement).value);
-}
-
-// ── Main ─────────────────────────────────────────────────────────────────────
-
 async function main(): Promise<void> {
   const status = document.getElementById("status")!;
   const progress = document.getElementById("progress") as HTMLProgressElement;
   const startBtn = document.getElementById("startBtn") as HTMLButtonElement;
+  const stopBtn = document.getElementById("stopBtn") as HTMLButtonElement;
   const delaySlider = document.getElementById("delaySlider") as HTMLInputElement;
   const delayValue = document.getElementById("delayValue")!;
-
-  // Keep the delay label in sync with the slider
   delaySlider.addEventListener("input", () => {
     delayValue.textContent = `${delaySlider.value} ms`;
   });
-
-  // Initialize jax-js backend
   status.textContent = "Initializing jax-js…";
-  await init();
-
-  const N = radon.geometry.resolution;
-
-  // Generate phantom
-  status.textContent = "Generating phantom…";
-  const phantomData = createPhantom(N);
-  let phantomMax = 0;
-  for (let i = 0; i < phantomData.length; i++) {
-    if (phantomData[i] > phantomMax) phantomMax = phantomData[i];
-  }
-  renderToCanvas("phantom", phantomData, N, N);
-
-  const num_angles = radon.angles.length;
-
+  const available = await init("wasm", "webgpu");
+  defaultDevice(available.includes("webgpu") ? "webgpu" : "wasm");
+  const n = geometry.resolution;
+  const phantom = createPhantom(n);
+  const phantomMax = Math.max(...phantom);
+  renderToCanvas("phantom", phantom, n, n);
   status.textContent = "Ready — click Start";
   startBtn.disabled = false;
+  let controller: AbortController | undefined;
+  stopBtn.addEventListener("click", () => controller?.abort());
 
-  // ── Run button handler ────────────────────────────────────────────────────
   startBtn.addEventListener("click", async () => {
     startBtn.disabled = true;
-
-    // ── Phase 1: Forward projection (Radon transform), frame by frame ─────
-    status.textContent = "Forward projection (angle 0)…";
+    stopBtn.disabled = false;
+    controller = new AbortController();
+    const signal = controller.signal;
+    const projector = new FanbeamProjector(geometry, angles);
+    const forward = jit((image: np.Array, state: typeof projector.state) =>
+      project(image, state, geometry.ray_step),
+    );
+    let measured: np.Array | undefined;
     progress.value = 0;
-
-    const phantomImg = np.array(phantomData).reshape([N, N]);
-    const sinogram = await radon.forward(phantomImg, {
-      on_progress: async (sinogram_data, angle_index) => {
-        renderToCanvas("sinogram", sinogram_data, radon.geometry.det_count, num_angles);
-        progress.value = ((angle_index + 1) / num_angles) * 50;
-        status.textContent = `Forward projection: angle ${angle_index + 1} / ${num_angles}`;
-        await new Promise<void>((resolve) => setTimeout(resolve, 0));
-      },
-      delay: getDelay(),
-    });
-    phantomImg.dispose();
-
-    // ── Phase 2: ART reconstruction, frame by frame ───────────────────────
-    status.textContent = "Reconstructing (ART)…";
-    let iterCount = 0;
-
-    const result = await radon.art(sinogram, {
-      on_progress: async (image_data, _angle_index) => {
-        iterCount++;
-        if (iterCount % 5 === 0 || iterCount === num_angles) {
-          renderToCanvas("reconstruction", image_data, N, N, phantomMax * 1.2);
-          progress.value = 50 + (iterCount / num_angles) * 50;
-          status.textContent = `Reconstruction: iteration ${iterCount} / ${num_angles}`;
-          await new Promise<void>((resolve) => setTimeout(resolve, 0));
-        }
-      },
-      delay: getDelay(),
-    });
-    sinogram.dispose();
-
-    const resultData = await result.data();
-    renderToCanvas("reconstruction", resultData as Float32Array, N, N, phantomMax * 1.2);
-    progress.value = 100;
-    status.textContent = "Done!";
-    startBtn.disabled = false;
+    renderToCanvas("reconstruction", new Float32Array(n * n), n, n);
+    try {
+      status.textContent = "Computing forward projection…";
+      await new Promise<void>((resolve) => setTimeout(resolve, 0));
+      signal.throwIfAborted();
+      measured = forward(np.array(phantom).reshape([n, n]), tree.ref(projector.state));
+      renderToCanvas(
+        "sinogram",
+        (await measured.ref.data()) as Float32Array,
+        geometry.det_count,
+        angles.length,
+      );
+      progress.value = 10;
+      let final_loss = 0;
+      const result = await reconstruct(projector, measured, {
+        steps: 120,
+        lr: 0.03,
+        view_chunk_size: 8,
+        report_every: 5,
+        signal,
+        on_progress: async ({ image, step, steps, loss }) => {
+          final_loss = loss;
+          renderToCanvas("reconstruction", image, n, n, phantomMax);
+          progress.value = 10 + (90 * step) / steps;
+          status.textContent = `Adam step ${step} / ${steps} · loss ${loss.toPrecision(4)}`;
+          await new Promise<void>((resolve) => setTimeout(resolve, Number(delaySlider.value)));
+        },
+      });
+      result.dispose();
+      status.textContent = `Done · projection loss ${final_loss.toPrecision(4)}`;
+    } catch (error) {
+      if (signal.aborted) status.textContent = "Stopped — click Start to run again";
+      else {
+        console.error(error);
+        status.textContent = `Error: ${error instanceof Error ? error.message : String(error)}`;
+      }
+    } finally {
+      measured?.dispose();
+      forward.dispose();
+      projector.dispose();
+      controller = undefined;
+      startBtn.disabled = false;
+      stopBtn.disabled = true;
+    }
   });
 }
 
-main().catch((err: Error) => {
-  console.error(err);
-  document.getElementById("status")!.textContent = `Error: ${err.message}`;
+main().catch((error: Error) => {
+  console.error(error);
+  document.getElementById("status")!.textContent = `Error: ${error.message}`;
 });

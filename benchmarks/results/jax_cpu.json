@@ -1,0 +1,2567 @@
+{
+  "recorded_utc": "2026-11-11T16:01:13.124880+00:00",
+  "python": "3.12.13",
+  "platform": "Linux-6.8.0-124-generic-x86_64-with-glibc2.35",
+  "cpu": "Intel(R) Xeon(R) Gold 6336Y CPU @ 2.40GHz",
+  "cpu_affinity": [
+    2
+  ],
+  "dtype": "float32",
+  "steps": 30,
+  "lr": 0.03,
+  "repeats": 7,
+  "minimum_seconds": 0.3,
+  "load_average_start": [
+    0.72021484375,
+    0.96044921875,
+    1.31103515625
+  ],
+  "method": "Fresh process per backend/case/operation; one shared CPU; explicit runtime geometry; synchronous wall time. RSS includes imports, compilation, executables, and arrays. XLA memory estimates are not RSS or PyTorch saved-tensor storage.",
+  "results": [
+    {
+      "case": "small",
+      "shape": [
+        1,
+        32,
+        32
+      ],
+      "views": 24,
+      "detectors": 40,
+      "backend": "torch",
+      "operation": "forward",
+      "versions": {
+        "torch": "2.15.0+cpu",
+        "numpy": "2.5.4"
+      },
+      "device": "cpu",
+      "cpu_affinity": [
+        2
+      ],
+      "initialization_ms": 1040.8067987300456,
+      "trace_compile_ms": 0.0,
+      "first_execution_ms": 2.359208185225725,
+      "median_ms": 1.563094987499493,
+      "min_ms": 1.5395789890101663,
+      "max_ms": 1.589426287898311,
+      "samples_ms": [
+        1.589426287898311,
+        1.5651278404725923,
+        1.556286778025053,
+        1.571449899563083,
+        1.563094987499493,
+        1.5395789890101663,
+        1.5590842985720545
+      ],
+      "calls_per_sample": 27,
+      "cold_call_ms": 2.359208185225725,
+      "rss_before_compile_mib": 232.68359375,
+      "rss_before_execution_mib": 232.6875,
+      "process_peak_rss_mib": 235.5859375,
+      "xla_executable_memory": null,
+      "errors_vs_torch": [
+        {
+          "relative_l2": 0.0,
+          "max_absolute": 0.0
+        }
+      ]
+    },
+    {
+      "case": "small",
+      "shape": [
+        1,
+        32,
+        32
+      ],
+      "views": 24,
+      "detectors": 40,
+      "backend": "jax-vmap",
+      "operation": "forward",
+      "versions": {
+        "jax": "0.12.0.1",
+        "jaxlib": "0.12.0.1",
+        "optax": "0.2.8",
+        "numpy": "2.5.4"
+      },
+      "device": "cpu:0",
+      "cpu_affinity": [
+        2
+      ],
+      "initialization_ms": 472.728312946856,
+      "trace_compile_ms": 248.19723283872008,
+      "first_execution_ms": 7.02290516346693,
+      "median_ms": 0.719971677942856,
+      "min_ms": 0.7145259705548351,
+      "max_ms": 0.7260513768808262,
+      "samples_ms": [
+        0.725851155112724,
+        0.7158349696043376,
+        0.715163372759078,
+        0.7249897824147263,
+        0.7145259705548351,
+        0.719971677942856,
+        0.7260513768808262
+      ],
+      "calls_per_sample": 37,
+      "cold_call_ms": 255.220138002187,
+      "rss_before_compile_mib": 195.28515625,
+      "rss_before_execution_mib": 233.70703125,
+      "process_peak_rss_mib": 237.94140625,
+      "xla_executable_memory": {
+        "argument_size_in_bytes": 24992,
+        "output_size_in_bytes": 3840,
+        "temp_size_in_bytes": 2250240,
+        "alias_size_in_bytes": 0
+      },
+      "errors_vs_torch": [
+        {
+          "relative_l2": 5.986940745172495e-07,
+          "max_absolute": 1.5735626220703125e-05
+        }
+      ]
+    },
+    {
+      "case": "small",
+      "shape": [
+        1,
+        32,
+        32
+      ],
+      "views": 24,
+      "detectors": 40,
+      "backend": "jax-scan",
+      "operation": "forward",
+      "versions": {
+        "jax": "0.12.0.1",
+        "jaxlib": "0.12.0.1",
+        "optax": "0.2.8",
+        "numpy": "2.5.4"
+      },
+      "device": "cpu:0",
+      "cpu_affinity": [
+        2
+      ],
+      "initialization_ms": 409.60543602705,
+      "trace_compile_ms": 131.10879203304648,
+      "first_execution_ms": 0.7797139696776867,
+      "median_ms": 0.29526609793171155,
+      "min_ms": 0.2907193517564116,
+      "max_ms": 0.3032762691512838,
+      "samples_ms": [
+        0.3028989912153364,
+        0.3032762691512838,
+        0.29526609793171155,
+        0.29436357084426795,
+        0.2907193517564116,
+        0.29531588593313285,
+        0.2950019253468191
+      ],
+      "calls_per_sample": 111,
+      "cold_call_ms": 131.88850600272417,
+      "rss_before_compile_mib": 195.1796875,
+      "rss_before_execution_mib": 221.3515625,
+      "process_peak_rss_mib": 221.4609375,
+      "xla_executable_memory": {
+        "argument_size_in_bytes": 24992,
+        "output_size_in_bytes": 3840,
+        "temp_size_in_bytes": 11120,
+        "alias_size_in_bytes": 0
+      },
+      "errors_vs_torch": [
+        {
+          "relative_l2": 6.005990030498205e-07,
+          "max_absolute": 1.5735626220703125e-05
+        }
+      ]
+    },
+    {
+      "case": "small",
+      "shape": [
+        1,
+        32,
+        32
+      ],
+      "views": 24,
+      "detectors": 40,
+      "backend": "jax-custom_jvp",
+      "operation": "forward",
+      "versions": {
+        "jax": "0.12.0.1",
+        "jaxlib": "0.12.0.1",
+        "optax": "0.2.8",
+        "numpy": "2.5.4"
+      },
+      "device": "cpu:0",
+      "cpu_affinity": [
+        2
+      ],
+      "initialization_ms": 408.04761927574873,
+      "trace_compile_ms": 131.8807927891612,
+      "first_execution_ms": 0.7463451474905014,
+      "median_ms": 0.2932260760058791,
+      "min_ms": 0.28964170349477714,
+      "max_ms": 0.3170151918558246,
+      "samples_ms": [
+        0.29113469250752766,
+        0.28964170349477714,
+        0.2932260760058791,
+        0.28994575269141437,
+        0.3083258496313277,
+        0.3170151918558246,
+        0.3080446849245641
+      ],
+      "calls_per_sample": 118,
+      "cold_call_ms": 132.6271379366517,
+      "rss_before_compile_mib": 195.3203125,
+      "rss_before_execution_mib": 221.52734375,
+      "process_peak_rss_mib": 221.578125,
+      "xla_executable_memory": {
+        "argument_size_in_bytes": 24992,
+        "output_size_in_bytes": 3840,
+        "temp_size_in_bytes": 11120,
+        "alias_size_in_bytes": 0
+      },
+      "errors_vs_torch": [
+        {
+          "relative_l2": 6.005990030498205e-07,
+          "max_absolute": 1.5735626220703125e-05
+        }
+      ]
+    },
+    {
+      "case": "small",
+      "shape": [
+        1,
+        32,
+        32
+      ],
+      "views": 24,
+      "detectors": 40,
+      "backend": "torch",
+      "operation": "loss_grad",
+      "versions": {
+        "torch": "2.15.0+cpu",
+        "numpy": "2.5.4"
+      },
+      "device": "cpu",
+      "cpu_affinity": [
+        2
+      ],
+      "initialization_ms": 905.2308071404696,
+      "trace_compile_ms": 0.0,
+      "first_execution_ms": 7.024334277957678,
+      "median_ms": 3.7681334652006626,
+      "min_ms": 3.7401040084660053,
+      "max_ms": 3.8167825900018215,
+      "samples_ms": [
+        3.8167825900018215,
+        3.7401040084660053,
+        3.772804792970419,
+        3.7807126995176077,
+        3.7681334652006626,
+        3.760993294417858,
+        3.746822476387024
+      ],
+      "calls_per_sample": 10,
+      "cold_call_ms": 7.024334277957678,
+      "rss_before_compile_mib": 232.6640625,
+      "rss_before_execution_mib": 232.66796875,
+      "process_peak_rss_mib": 237.7578125,
+      "xla_executable_memory": null,
+      "errors_vs_torch": [
+        {
+          "relative_l2": 0.0,
+          "max_absolute": 0.0
+        },
+        {
+          "relative_l2": 0.0,
+          "max_absolute": 0.0
+        }
+      ]
+    },
+    {
+      "case": "small",
+      "shape": [
+        1,
+        32,
+        32
+      ],
+      "views": 24,
+      "detectors": 40,
+      "backend": "jax-vmap",
+      "operation": "loss_grad",
+      "versions": {
+        "jax": "0.12.0.1",
+        "jaxlib": "0.12.0.1",
+        "optax": "0.2.8",
+        "numpy": "2.5.4"
+      },
+      "device": "cpu:0",
+      "cpu_affinity": [
+        2
+      ],
+      "initialization_ms": 408.7717467918992,
+      "trace_compile_ms": 691.2315259687603,
+      "first_execution_ms": 8.459823206067085,
+      "median_ms": 2.47290781699121,
+      "min_ms": 2.3328477051109076,
+      "max_ms": 2.7157603297382593,
+      "samples_ms": [
+        2.47290781699121,
+        2.622588910162449,
+        2.7157603297382593,
+        2.5029568932950497,
+        2.4600428994745016,
+        2.3360206745564938,
+        2.3328477051109076
+      ],
+      "calls_per_sample": 10,
+      "cold_call_ms": 699.6913491748273,
+      "rss_before_compile_mib": 195.33984375,
+      "rss_before_execution_mib": 263.61328125,
+      "process_peak_rss_mib": 274.734375,
+      "xla_executable_memory": {
+        "argument_size_in_bytes": 28832,
+        "output_size_in_bytes": 4116,
+        "temp_size_in_bytes": 5241600,
+        "alias_size_in_bytes": 0
+      },
+      "errors_vs_torch": [
+        {
+          "relative_l2": 1.5155004246811064e-07,
+          "max_absolute": 3.814697265625e-06
+        },
+        {
+          "relative_l2": 2.0394772319429432e-07,
+          "max_absolute": 1.6391277313232422e-07
+        }
+      ]
+    },
+    {
+      "case": "small",
+      "shape": [
+        1,
+        32,
+        32
+      ],
+      "views": 24,
+      "detectors": 40,
+      "backend": "jax-scan",
+      "operation": "loss_grad",
+      "versions": {
+        "jax": "0.12.0.1",
+        "jaxlib": "0.12.0.1",
+        "optax": "0.2.8",
+        "numpy": "2.5.4"
+      },
+      "device": "cpu:0",
+      "cpu_affinity": [
+        2
+      ],
+      "initialization_ms": 406.0606979764998,
+      "trace_compile_ms": 520.6865118816495,
+      "first_execution_ms": 1.903219148516655,
+      "median_ms": 1.1447529441543989,
+      "min_ms": 1.1346790540431226,
+      "max_ms": 1.2121654780847686,
+      "samples_ms": [
+        1.2121654780847686,
+        1.1707574794335025,
+        1.139793824404478,
+        1.1495486034878664,
+        1.1447529441543989,
+        1.1378638313284941,
+        1.1346790540431226
+      ],
+      "calls_per_sample": 35,
+      "cold_call_ms": 522.5897310301661,
+      "rss_before_compile_mib": 195.28515625,
+      "rss_before_execution_mib": 251.96875,
+      "process_peak_rss_mib": 252.51171875,
+      "xla_executable_memory": {
+        "argument_size_in_bytes": 28832,
+        "output_size_in_bytes": 4116,
+        "temp_size_in_bytes": 141328,
+        "alias_size_in_bytes": 0
+      },
+      "errors_vs_torch": [
+        {
+          "relative_l2": 1.5155004246811064e-07,
+          "max_absolute": 3.814697265625e-06
+        },
+        {
+          "relative_l2": 1.7953634900617857e-07,
+          "max_absolute": 1.4901161193847656e-07
+        }
+      ]
+    },
+    {
+      "case": "small",
+      "shape": [
+        1,
+        32,
+        32
+      ],
+      "views": 24,
+      "detectors": 40,
+      "backend": "jax-custom_jvp",
+      "operation": "loss_grad",
+      "versions": {
+        "jax": "0.12.0.1",
+        "jaxlib": "0.12.0.1",
+        "optax": "0.2.8",
+        "numpy": "2.5.4"
+      },
+      "device": "cpu:0",
+      "cpu_affinity": [
+        2
+      ],
+      "initialization_ms": 410.8352642506361,
+      "trace_compile_ms": 494.4342551752925,
+      "first_execution_ms": 1.9970419816672802,
+      "median_ms": 1.1388438351049617,
+      "min_ms": 1.1278547573129873,
+      "max_ms": 1.192386815878185,
+      "samples_ms": [
+        1.142614269377412,
+        1.1642700111543811,
+        1.1278547573129873,
+        1.192386815878185,
+        1.1388438351049617,
+        1.1358635147681106,
+        1.1323367849596448
+      ],
+      "calls_per_sample": 37,
+      "cold_call_ms": 496.4312971569598,
+      "rss_before_compile_mib": 195.23046875,
+      "rss_before_execution_mib": 249.9921875,
+      "process_peak_rss_mib": 250.53515625,
+      "xla_executable_memory": {
+        "argument_size_in_bytes": 28832,
+        "output_size_in_bytes": 4116,
+        "temp_size_in_bytes": 141296,
+        "alias_size_in_bytes": 0
+      },
+      "errors_vs_torch": [
+        {
+          "relative_l2": 1.5155004246811064e-07,
+          "max_absolute": 3.814697265625e-06
+        },
+        {
+          "relative_l2": 1.7953634900617857e-07,
+          "max_absolute": 1.4901161193847656e-07
+        }
+      ]
+    },
+    {
+      "case": "small",
+      "shape": [
+        1,
+        32,
+        32
+      ],
+      "views": 24,
+      "detectors": 40,
+      "backend": "torch",
+      "operation": "reconstruct",
+      "versions": {
+        "torch": "2.15.0+cpu",
+        "numpy": "2.5.4"
+      },
+      "device": "cpu",
+      "cpu_affinity": [
+        2
+      ],
+      "initialization_ms": 907.0176440291107,
+      "trace_compile_ms": 0.0,
+      "first_execution_ms": 951.2865510769188,
+      "median_ms": 117.83758690580726,
+      "min_ms": 117.73270182311535,
+      "max_ms": 120.1691678725183,
+      "samples_ms": [
+        117.83758690580726,
+        120.1691678725183,
+        117.73270182311535
+      ],
+      "calls_per_sample": 1,
+      "cold_call_ms": 951.2865510769188,
+      "rss_before_compile_mib": 232.65234375,
+      "rss_before_execution_mib": 232.65625,
+      "process_peak_rss_mib": 313.13671875,
+      "xla_executable_memory": null,
+      "errors_vs_torch": [
+        {
+          "relative_l2": 0.0,
+          "max_absolute": 0.0
+        }
+      ],
+      "initial_loss": 11.08515453338623,
+      "final_loss": 0.5466194152832031
+    },
+    {
+      "case": "small",
+      "shape": [
+        1,
+        32,
+        32
+      ],
+      "views": 24,
+      "detectors": 40,
+      "backend": "jax-vmap",
+      "operation": "reconstruct",
+      "versions": {
+        "jax": "0.12.0.1",
+        "jaxlib": "0.12.0.1",
+        "optax": "0.2.8",
+        "numpy": "2.5.4"
+      },
+      "device": "cpu:0",
+      "cpu_affinity": [
+        2
+      ],
+      "initialization_ms": 442.93671334162354,
+      "trace_compile_ms": 620.886096265167,
+      "first_execution_ms": 29.61362898349762,
+      "median_ms": 25.628582225181162,
+      "min_ms": 24.582017096690834,
+      "max_ms": 26.26850304659456,
+      "samples_ms": [
+        25.628582225181162,
+        26.26850304659456,
+        24.582017096690834
+      ],
+      "calls_per_sample": 4,
+      "cold_call_ms": 650.4997252486646,
+      "rss_before_compile_mib": 214.0078125,
+      "rss_before_execution_mib": 265.5234375,
+      "process_peak_rss_mib": 279.11328125,
+      "xla_executable_memory": {
+        "argument_size_in_bytes": 28832,
+        "output_size_in_bytes": 4096,
+        "temp_size_in_bytes": 4268176,
+        "alias_size_in_bytes": 0
+      },
+      "errors_vs_torch": [
+        {
+          "relative_l2": 2.2184770854821255e-07,
+          "max_absolute": 2.905726432800293e-07
+        }
+      ],
+      "initial_loss": 11.08515453338623,
+      "final_loss": 0.5466196537017822
+    },
+    {
+      "case": "small",
+      "shape": [
+        1,
+        32,
+        32
+      ],
+      "views": 24,
+      "detectors": 40,
+      "backend": "jax-scan",
+      "operation": "reconstruct",
+      "versions": {
+        "jax": "0.12.0.1",
+        "jaxlib": "0.12.0.1",
+        "optax": "0.2.8",
+        "numpy": "2.5.4"
+      },
+      "device": "cpu:0",
+      "cpu_affinity": [
+        2
+      ],
+      "initialization_ms": 441.353851929307,
+      "trace_compile_ms": 606.0610092245042,
+      "first_execution_ms": 34.461979288607836,
+      "median_ms": 33.40359668557843,
+      "min_ms": 33.27707046022018,
+      "max_ms": 33.414770693828665,
+      "samples_ms": [
+        33.27707046022018,
+        33.40359668557843,
+        33.414770693828665
+      ],
+      "calls_per_sample": 3,
+      "cold_call_ms": 640.5229885131121,
+      "rss_before_compile_mib": 214.0546875,
+      "rss_before_execution_mib": 257.91796875,
+      "process_peak_rss_mib": 258.6640625,
+      "xla_executable_memory": {
+        "argument_size_in_bytes": 28832,
+        "output_size_in_bytes": 4096,
+        "temp_size_in_bytes": 154000,
+        "alias_size_in_bytes": 0
+      },
+      "errors_vs_torch": [
+        {
+          "relative_l2": 2.2154037623545464e-07,
+          "max_absolute": 2.868473529815674e-07
+        }
+      ],
+      "initial_loss": 11.08515453338623,
+      "final_loss": 0.5466196537017822
+    },
+    {
+      "case": "small",
+      "shape": [
+        1,
+        32,
+        32
+      ],
+      "views": 24,
+      "detectors": 40,
+      "backend": "jax-custom_jvp",
+      "operation": "reconstruct",
+      "versions": {
+        "jax": "0.12.0.1",
+        "jaxlib": "0.12.0.1",
+        "optax": "0.2.8",
+        "numpy": "2.5.4"
+      },
+      "device": "cpu:0",
+      "cpu_affinity": [
+        2
+      ],
+      "initialization_ms": 439.63060481473804,
+      "trace_compile_ms": 569.3833716213703,
+      "first_execution_ms": 34.48056010529399,
+      "median_ms": 33.41604536399245,
+      "min_ms": 33.07371602083246,
+      "max_ms": 33.5730219570299,
+      "samples_ms": [
+        33.5730219570299,
+        33.41604536399245,
+        33.07371602083246
+      ],
+      "calls_per_sample": 3,
+      "cold_call_ms": 603.8639317266643,
+      "rss_before_compile_mib": 213.96484375,
+      "rss_before_execution_mib": 257.7890625,
+      "process_peak_rss_mib": 258.59765625,
+      "xla_executable_memory": {
+        "argument_size_in_bytes": 28832,
+        "output_size_in_bytes": 4096,
+        "temp_size_in_bytes": 153928,
+        "alias_size_in_bytes": 0
+      },
+      "errors_vs_torch": [
+        {
+          "relative_l2": 2.2154037623545464e-07,
+          "max_absolute": 2.868473529815674e-07
+        }
+      ],
+      "initial_loss": 11.08515453338623,
+      "final_loss": 0.5466196537017822
+    },
+    {
+      "case": "medium",
+      "shape": [
+        1,
+        128,
+        128
+      ],
+      "views": 48,
+      "detectors": 160,
+      "backend": "torch",
+      "operation": "forward",
+      "versions": {
+        "torch": "2.15.0+cpu",
+        "numpy": "2.5.4"
+      },
+      "device": "cpu",
+      "cpu_affinity": [
+        2
+      ],
+      "initialization_ms": 901.7138010822237,
+      "trace_compile_ms": 0.0,
+      "first_execution_ms": 25.239523965865374,
+      "median_ms": 21.703432081267238,
+      "min_ms": 21.519432542845607,
+      "max_ms": 21.98787755332887,
+      "samples_ms": [
+        21.98787755332887,
+        21.774495020508766,
+        21.703432081267238,
+        21.819881163537502,
+        21.65486360900104,
+        21.54089603573084,
+        21.519432542845607
+      ],
+      "calls_per_sample": 2,
+      "cold_call_ms": 25.239523965865374,
+      "rss_before_compile_mib": 234.14453125,
+      "rss_before_execution_mib": 234.1484375,
+      "process_peak_rss_mib": 241.70703125,
+      "xla_executable_memory": null,
+      "errors_vs_torch": [
+        {
+          "relative_l2": 0.0,
+          "max_absolute": 0.0
+        }
+      ]
+    },
+    {
+      "case": "medium",
+      "shape": [
+        1,
+        128,
+        128
+      ],
+      "views": 48,
+      "detectors": 160,
+      "backend": "jax-vmap",
+      "operation": "forward",
+      "versions": {
+        "jax": "0.12.0.1",
+        "jaxlib": "0.12.0.1",
+        "optax": "0.2.8",
+        "numpy": "2.5.4"
+      },
+      "device": "cpu:0",
+      "cpu_affinity": [
+        2
+      ],
+      "initialization_ms": 408.85172691196203,
+      "trace_compile_ms": 223.50060427561402,
+      "first_execution_ms": 83.05508270859718,
+      "median_ms": 78.49941775202751,
+      "min_ms": 78.06318579241633,
+      "max_ms": 80.32163372263312,
+      "samples_ms": [
+        80.32163372263312,
+        78.78445368260145,
+        78.59505340456963,
+        78.10509484261274,
+        78.49941775202751,
+        78.26102804392576,
+        78.06318579241633
+      ],
+      "calls_per_sample": 1,
+      "cold_call_ms": 306.5556869842112,
+      "rss_before_compile_mib": 195.91015625,
+      "rss_before_execution_mib": 232.22265625,
+      "process_peak_rss_mib": 361.03515625,
+      "xla_executable_memory": {
+        "argument_size_in_bytes": 394688,
+        "output_size_in_bytes": 30720,
+        "temp_size_in_bytes": 71055360,
+        "alias_size_in_bytes": 0
+      },
+      "errors_vs_torch": [
+        {
+          "relative_l2": 2.628457923106315e-06,
+          "max_absolute": 0.00020503997802734375
+        }
+      ]
+    },
+    {
+      "case": "medium",
+      "shape": [
+        1,
+        128,
+        128
+      ],
+      "views": 48,
+      "detectors": 160,
+      "backend": "jax-scan",
+      "operation": "forward",
+      "versions": {
+        "jax": "0.12.0.1",
+        "jaxlib": "0.12.0.1",
+        "optax": "0.2.8",
+        "numpy": "2.5.4"
+      },
+      "device": "cpu:0",
+      "cpu_affinity": [
+        2
+      ],
+      "initialization_ms": 412.9133061505854,
+      "trace_compile_ms": 252.8639631345868,
+      "first_execution_ms": 27.586406096816063,
+      "median_ms": 21.505756536498666,
+      "min_ms": 21.287647541612387,
+      "max_ms": 21.66342339478433,
+      "samples_ms": [
+        21.505756536498666,
+        21.66342339478433,
+        21.63529396057129,
+        21.607914473861456,
+        21.455193404108286,
+        21.46325702778995,
+        21.287647541612387
+      ],
+      "calls_per_sample": 2,
+      "cold_call_ms": 280.4503692314029,
+      "rss_before_compile_mib": 195.90625,
+      "rss_before_execution_mib": 237.46875,
+      "process_peak_rss_mib": 241.26953125,
+      "xla_executable_memory": {
+        "argument_size_in_bytes": 394688,
+        "output_size_in_bytes": 30720,
+        "temp_size_in_bytes": 1481136,
+        "alias_size_in_bytes": 0
+      },
+      "errors_vs_torch": [
+        {
+          "relative_l2": 2.628457923106315e-06,
+          "max_absolute": 0.00020503997802734375
+        }
+      ]
+    },
+    {
+      "case": "medium",
+      "shape": [
+        1,
+        128,
+        128
+      ],
+      "views": 48,
+      "detectors": 160,
+      "backend": "jax-custom_jvp",
+      "operation": "forward",
+      "versions": {
+        "jax": "0.12.0.1",
+        "jaxlib": "0.12.0.1",
+        "optax": "0.2.8",
+        "numpy": "2.5.4"
+      },
+      "device": "cpu:0",
+      "cpu_affinity": [
+        2
+      ],
+      "initialization_ms": 410.17058212310076,
+      "trace_compile_ms": 255.27113070711493,
+      "first_execution_ms": 26.897524017840624,
+      "median_ms": 21.376724122092128,
+      "min_ms": 21.343720145523548,
+      "max_ms": 21.42281993292272,
+      "samples_ms": [
+        21.409609587863088,
+        21.343720145523548,
+        21.404034923762083,
+        21.352276438847184,
+        21.376724122092128,
+        21.362753584980965,
+        21.42281993292272
+      ],
+      "calls_per_sample": 2,
+      "cold_call_ms": 282.16865472495556,
+      "rss_before_compile_mib": 195.93359375,
+      "rss_before_execution_mib": 237.6015625,
+      "process_peak_rss_mib": 241.40234375,
+      "xla_executable_memory": {
+        "argument_size_in_bytes": 394688,
+        "output_size_in_bytes": 30720,
+        "temp_size_in_bytes": 1481136,
+        "alias_size_in_bytes": 0
+      },
+      "errors_vs_torch": [
+        {
+          "relative_l2": 2.628457923106315e-06,
+          "max_absolute": 0.00020503997802734375
+        }
+      ]
+    },
+    {
+      "case": "medium",
+      "shape": [
+        1,
+        128,
+        128
+      ],
+      "views": 48,
+      "detectors": 160,
+      "backend": "torch",
+      "operation": "loss_grad",
+      "versions": {
+        "torch": "2.15.0+cpu",
+        "numpy": "2.5.4"
+      },
+      "device": "cpu",
+      "cpu_affinity": [
+        2
+      ],
+      "initialization_ms": 902.3072868585587,
+      "trace_compile_ms": 0.0,
+      "first_execution_ms": 56.421308778226376,
+      "median_ms": 52.46561812236905,
+      "min_ms": 52.29112319648266,
+      "max_ms": 52.982243709266186,
+      "samples_ms": [
+        52.30135377496481,
+        52.29112319648266,
+        52.59058205410838,
+        52.40849731490016,
+        52.57864808663726,
+        52.46561812236905,
+        52.982243709266186
+      ],
+      "calls_per_sample": 1,
+      "cold_call_ms": 56.421308778226376,
+      "rss_before_compile_mib": 234.18359375,
+      "rss_before_execution_mib": 234.1875,
+      "process_peak_rss_mib": 243.34765625,
+      "xla_executable_memory": null,
+      "errors_vs_torch": [
+        {
+          "relative_l2": 0.0,
+          "max_absolute": 0.0
+        },
+        {
+          "relative_l2": 0.0,
+          "max_absolute": 0.0
+        }
+      ]
+    },
+    {
+      "case": "medium",
+      "shape": [
+        1,
+        128,
+        128
+      ],
+      "views": 48,
+      "detectors": 160,
+      "backend": "jax-vmap",
+      "operation": "loss_grad",
+      "versions": {
+        "jax": "0.12.0.1",
+        "jaxlib": "0.12.0.1",
+        "optax": "0.2.8",
+        "numpy": "2.5.4"
+      },
+      "device": "cpu:0",
+      "cpu_affinity": [
+        2
+      ],
+      "initialization_ms": 411.1317521892488,
+      "trace_compile_ms": 581.0856879688799,
+      "first_execution_ms": 155.62799433246255,
+      "median_ms": 151.13991685211658,
+      "min_ms": 149.9420222826302,
+      "max_ms": 183.57896618545055,
+      "samples_ms": [
+        150.7052192464471,
+        149.9420222826302,
+        153.02080428227782,
+        150.7529877126217,
+        153.75666599720716,
+        183.57896618545055,
+        151.13991685211658
+      ],
+      "calls_per_sample": 1,
+      "cold_call_ms": 736.7136823013425,
+      "rss_before_compile_mib": 196.0,
+      "rss_before_execution_mib": 260.32421875,
+      "process_peak_rss_mib": 442.09375,
+      "xla_executable_memory": {
+        "argument_size_in_bytes": 425408,
+        "output_size_in_bytes": 65556,
+        "temp_size_in_bytes": 165795840,
+        "alias_size_in_bytes": 0
+      },
+      "errors_vs_torch": [
+        {
+          "relative_l2": 6.741250059660062e-08,
+          "max_absolute": 1.52587890625e-05
+        },
+        {
+          "relative_l2": 4.195508548626461e-07,
+          "max_absolute": 2.384185791015625e-07
+        }
+      ]
+    },
+    {
+      "case": "medium",
+      "shape": [
+        1,
+        128,
+        128
+      ],
+      "views": 48,
+      "detectors": 160,
+      "backend": "jax-scan",
+      "operation": "loss_grad",
+      "versions": {
+        "jax": "0.12.0.1",
+        "jaxlib": "0.12.0.1",
+        "optax": "0.2.8",
+        "numpy": "2.5.4"
+      },
+      "device": "cpu:0",
+      "cpu_affinity": [
+        2
+      ],
+      "initialization_ms": 410.5329141020775,
+      "trace_compile_ms": 589.0544042922556,
+      "first_execution_ms": 59.47770504280925,
+      "median_ms": 52.97559080645442,
+      "min_ms": 52.738239988684654,
+      "max_ms": 54.81957504525781,
+      "samples_ms": [
+        52.97559080645442,
+        53.04978182539344,
+        52.83534014597535,
+        52.95201297849417,
+        54.81957504525781,
+        54.784141946583986,
+        52.738239988684654
+      ],
+      "calls_per_sample": 1,
+      "cold_call_ms": 648.5321093350649,
+      "rss_before_compile_mib": 195.95703125,
+      "rss_before_execution_mib": 264.9296875,
+      "process_peak_rss_mib": 270.375,
+      "xla_executable_memory": {
+        "argument_size_in_bytes": 425408,
+        "output_size_in_bytes": 65556,
+        "temp_size_in_bytes": 2201360,
+        "alias_size_in_bytes": 0
+      },
+      "errors_vs_torch": [
+        {
+          "relative_l2": 6.741250059660062e-08,
+          "max_absolute": 1.52587890625e-05
+        },
+        {
+          "relative_l2": 3.926082496088623e-07,
+          "max_absolute": 2.384185791015625e-07
+        }
+      ]
+    },
+    {
+      "case": "medium",
+      "shape": [
+        1,
+        128,
+        128
+      ],
+      "views": 48,
+      "detectors": 160,
+      "backend": "jax-custom_jvp",
+      "operation": "loss_grad",
+      "versions": {
+        "jax": "0.12.0.1",
+        "jaxlib": "0.12.0.1",
+        "optax": "0.2.8",
+        "numpy": "2.5.4"
+      },
+      "device": "cpu:0",
+      "cpu_affinity": [
+        2
+      ],
+      "initialization_ms": 414.1631983220577,
+      "trace_compile_ms": 561.9557145982981,
+      "first_execution_ms": 58.54415474459529,
+      "median_ms": 53.6503791809082,
+      "min_ms": 52.98143997788429,
+      "max_ms": 56.02755676954985,
+      "samples_ms": [
+        53.12874633818865,
+        52.98143997788429,
+        56.02755676954985,
+        53.6503791809082,
+        54.08541299402714,
+        53.17084398120642,
+        54.2350709438324
+      ],
+      "calls_per_sample": 1,
+      "cold_call_ms": 620.4998693428934,
+      "rss_before_compile_mib": 195.9453125,
+      "rss_before_execution_mib": 262.76953125,
+      "process_peak_rss_mib": 267.25,
+      "xla_executable_memory": {
+        "argument_size_in_bytes": 425408,
+        "output_size_in_bytes": 65556,
+        "temp_size_in_bytes": 2201328,
+        "alias_size_in_bytes": 0
+      },
+      "errors_vs_torch": [
+        {
+          "relative_l2": 6.741250059660062e-08,
+          "max_absolute": 1.52587890625e-05
+        },
+        {
+          "relative_l2": 3.926082496088623e-07,
+          "max_absolute": 2.384185791015625e-07
+        }
+      ]
+    },
+    {
+      "case": "medium",
+      "shape": [
+        1,
+        128,
+        128
+      ],
+      "views": 48,
+      "detectors": 160,
+      "backend": "torch",
+      "operation": "reconstruct",
+      "versions": {
+        "torch": "2.15.0+cpu",
+        "numpy": "2.5.4"
+      },
+      "device": "cpu",
+      "cpu_affinity": [
+        2
+      ],
+      "initialization_ms": 908.2635780796409,
+      "trace_compile_ms": 0.0,
+      "first_execution_ms": 2451.5272178687155,
+      "median_ms": 1596.9554539769888,
+      "min_ms": 1593.10557320714,
+      "max_ms": 1605.5837380699813,
+      "samples_ms": [
+        1605.5837380699813,
+        1596.9554539769888,
+        1593.10557320714
+      ],
+      "calls_per_sample": 1,
+      "cold_call_ms": 2451.5272178687155,
+      "rss_before_compile_mib": 233.9296875,
+      "rss_before_execution_mib": 233.9296875,
+      "process_peak_rss_mib": 322.30078125,
+      "xla_executable_memory": null,
+      "errors_vs_torch": [
+        {
+          "relative_l2": 0.0,
+          "max_absolute": 0.0
+        }
+      ],
+      "initial_loss": 173.21426391601562,
+      "final_loss": 8.635727882385254
+    },
+    {
+      "case": "medium",
+      "shape": [
+        1,
+        128,
+        128
+      ],
+      "views": 48,
+      "detectors": 160,
+      "backend": "jax-vmap",
+      "operation": "reconstruct",
+      "versions": {
+        "jax": "0.12.0.1",
+        "jaxlib": "0.12.0.1",
+        "optax": "0.2.8",
+        "numpy": "2.5.4"
+      },
+      "device": "cpu:0",
+      "cpu_affinity": [
+        2
+      ],
+      "initialization_ms": 440.2877031825483,
+      "trace_compile_ms": 546.64491629228,
+      "first_execution_ms": 1108.3472189493477,
+      "median_ms": 1067.0083672739565,
+      "min_ms": 1065.0467700324953,
+      "max_ms": 1072.1710762009025,
+      "samples_ms": [
+        1072.1710762009025,
+        1067.0083672739565,
+        1065.0467700324953
+      ],
+      "calls_per_sample": 1,
+      "cold_call_ms": 1654.9921352416277,
+      "rss_before_compile_mib": 214.6484375,
+      "rss_before_execution_mib": 265.578125,
+      "process_peak_rss_mib": 417.6015625,
+      "xla_executable_memory": {
+        "argument_size_in_bytes": 425408,
+        "output_size_in_bytes": 65536,
+        "temp_size_in_bytes": 134609296,
+        "alias_size_in_bytes": 0
+      },
+      "errors_vs_torch": [
+        {
+          "relative_l2": 5.036095295922933e-07,
+          "max_absolute": 1.2079253792762756e-06
+        }
+      ],
+      "initial_loss": 173.21426391601562,
+      "final_loss": 8.635730743408203
+    },
+    {
+      "case": "medium",
+      "shape": [
+        1,
+        128,
+        128
+      ],
+      "views": 48,
+      "detectors": 160,
+      "backend": "jax-scan",
+      "operation": "reconstruct",
+      "versions": {
+        "jax": "0.12.0.1",
+        "jaxlib": "0.12.0.1",
+        "optax": "0.2.8",
+        "numpy": "2.5.4"
+      },
+      "device": "cpu:0",
+      "cpu_affinity": [
+        2
+      ],
+      "initialization_ms": 437.894593924284,
+      "trace_compile_ms": 690.6500258482993,
+      "first_execution_ms": 1611.3422070629895,
+      "median_ms": 1611.364440061152,
+      "min_ms": 1606.2352983281016,
+      "max_ms": 1612.1727819554508,
+      "samples_ms": [
+        1612.1727819554508,
+        1611.364440061152,
+        1606.2352983281016
+      ],
+      "calls_per_sample": 1,
+      "cold_call_ms": 2301.9922329112887,
+      "rss_before_compile_mib": 214.58984375,
+      "rss_before_execution_mib": 274.5703125,
+      "process_peak_rss_mib": 284.921875,
+      "xla_executable_memory": {
+        "argument_size_in_bytes": 425408,
+        "output_size_in_bytes": 65536,
+        "temp_size_in_bytes": 2398352,
+        "alias_size_in_bytes": 0
+      },
+      "errors_vs_torch": [
+        {
+          "relative_l2": 5.0238493898223e-07,
+          "max_absolute": 1.2330710887908936e-06
+        }
+      ],
+      "initial_loss": 173.21426391601562,
+      "final_loss": 8.635730743408203
+    },
+    {
+      "case": "medium",
+      "shape": [
+        1,
+        128,
+        128
+      ],
+      "views": 48,
+      "detectors": 160,
+      "backend": "jax-custom_jvp",
+      "operation": "reconstruct",
+      "versions": {
+        "jax": "0.12.0.1",
+        "jaxlib": "0.12.0.1",
+        "optax": "0.2.8",
+        "numpy": "2.5.4"
+      },
+      "device": "cpu:0",
+      "cpu_affinity": [
+        2
+      ],
+      "initialization_ms": 440.84549974650145,
+      "trace_compile_ms": 645.8613849245012,
+      "first_execution_ms": 1607.8452188521624,
+      "median_ms": 1595.3312320634723,
+      "min_ms": 1594.3776350468397,
+      "max_ms": 1595.7670263014734,
+      "samples_ms": [
+        1595.3312320634723,
+        1595.7670263014734,
+        1594.3776350468397
+      ],
+      "calls_per_sample": 1,
+      "cold_call_ms": 2253.7066037766635,
+      "rss_before_compile_mib": 214.59375,
+      "rss_before_execution_mib": 269.54296875,
+      "process_peak_rss_mib": 279.98828125,
+      "xla_executable_memory": {
+        "argument_size_in_bytes": 425408,
+        "output_size_in_bytes": 65536,
+        "temp_size_in_bytes": 2398280,
+        "alias_size_in_bytes": 0
+      },
+      "errors_vs_torch": [
+        {
+          "relative_l2": 5.0238493898223e-07,
+          "max_absolute": 1.2330710887908936e-06
+        }
+      ],
+      "initial_loss": 173.21426391601562,
+      "final_loss": 8.635730743408203
+    },
+    {
+      "case": "large",
+      "shape": [
+        1,
+        256,
+        256
+      ],
+      "views": 90,
+      "detectors": 320,
+      "backend": "torch",
+      "operation": "forward",
+      "versions": {
+        "torch": "2.15.0+cpu",
+        "numpy": "2.5.4"
+      },
+      "device": "cpu",
+      "cpu_affinity": [
+        2
+      ],
+      "initialization_ms": 906.2188449315727,
+      "trace_compile_ms": 0.0,
+      "first_execution_ms": 201.31753338500857,
+      "median_ms": 179.11949707195163,
+      "min_ms": 177.30066739022732,
+      "max_ms": 180.63169391825795,
+      "samples_ms": [
+        178.98615775629878,
+        180.15091586858034,
+        180.63169391825795,
+        179.73159905523062,
+        179.11949707195163,
+        178.96489193663,
+        177.30066739022732
+      ],
+      "calls_per_sample": 1,
+      "cold_call_ms": 201.31753338500857,
+      "rss_before_compile_mib": 235.67578125,
+      "rss_before_execution_mib": 235.67578125,
+      "process_peak_rss_mib": 294.27734375,
+      "xla_executable_memory": null,
+      "errors_vs_torch": [
+        {
+          "relative_l2": 0.0,
+          "max_absolute": 0.0
+        }
+      ]
+    },
+    {
+      "case": "large",
+      "shape": [
+        1,
+        256,
+        256
+      ],
+      "views": 90,
+      "detectors": 320,
+      "backend": "jax-vmap",
+      "operation": "forward",
+      "versions": {
+        "jax": "0.12.0.1",
+        "jaxlib": "0.12.0.1",
+        "optax": "0.2.8",
+        "numpy": "2.5.4"
+      },
+      "device": "cpu:0",
+      "cpu_affinity": [
+        2
+      ],
+      "initialization_ms": 412.4407093040645,
+      "trace_compile_ms": 218.61872216686606,
+      "first_execution_ms": 580.3125542588532,
+      "median_ms": 561.6246061399579,
+      "min_ms": 542.4734377302229,
+      "max_ms": 585.2327127940953,
+      "samples_ms": [
+        585.2327127940953,
+        555.635099299252,
+        565.5205240473151,
+        543.5283072292805,
+        542.4734377302229,
+        575.0603987835348,
+        561.6246061399579
+      ],
+      "calls_per_sample": 1,
+      "cold_call_ms": 798.9312764257193,
+      "rss_before_compile_mib": 198.05859375,
+      "rss_before_execution_mib": 233.51953125,
+      "process_peak_rss_mib": 967.14453125,
+      "xla_executable_memory": {
+        "argument_size_in_bytes": 1575784,
+        "output_size_in_bytes": 115200,
+        "temp_size_in_bytes": 531878400,
+        "alias_size_in_bytes": 0
+      },
+      "errors_vs_torch": [
+        {
+          "relative_l2": 5.4238427097194066e-06,
+          "max_absolute": 0.0005049705505371094
+        }
+      ]
+    },
+    {
+      "case": "large",
+      "shape": [
+        1,
+        256,
+        256
+      ],
+      "views": 90,
+      "detectors": 320,
+      "backend": "jax-scan",
+      "operation": "forward",
+      "versions": {
+        "jax": "0.12.0.1",
+        "jaxlib": "0.12.0.1",
+        "optax": "0.2.8",
+        "numpy": "2.5.4"
+      },
+      "device": "cpu:0",
+      "cpu_affinity": [
+        2
+      ],
+      "initialization_ms": 409.221856854856,
+      "trace_compile_ms": 254.93956124410033,
+      "first_execution_ms": 269.6049427613616,
+      "median_ms": 194.15572192519903,
+      "min_ms": 189.21400886029005,
+      "max_ms": 195.78970922157168,
+      "samples_ms": [
+        189.65490674600005,
+        195.78970922157168,
+        194.15572192519903,
+        194.16766799986362,
+        189.21400886029005,
+        194.52531123533845,
+        189.9424446746707
+      ],
+      "calls_per_sample": 1,
+      "cold_call_ms": 524.5445040054619,
+      "rss_before_compile_mib": 198.01953125,
+      "rss_before_execution_mib": 240.94921875,
+      "process_peak_rss_mib": 253.78125,
+      "xla_executable_memory": {
+        "argument_size_in_bytes": 1575784,
+        "output_size_in_bytes": 115200,
+        "temp_size_in_bytes": 5911216,
+        "alias_size_in_bytes": 0
+      },
+      "errors_vs_torch": [
+        {
+          "relative_l2": 5.4238427097194066e-06,
+          "max_absolute": 0.0005049705505371094
+        }
+      ]
+    },
+    {
+      "case": "large",
+      "shape": [
+        1,
+        256,
+        256
+      ],
+      "views": 90,
+      "detectors": 320,
+      "backend": "jax-custom_jvp",
+      "operation": "forward",
+      "versions": {
+        "jax": "0.12.0.1",
+        "jaxlib": "0.12.0.1",
+        "optax": "0.2.8",
+        "numpy": "2.5.4"
+      },
+      "device": "cpu:0",
+      "cpu_affinity": [
+        2
+      ],
+      "initialization_ms": 410.1538877002895,
+      "trace_compile_ms": 251.3600029051304,
+      "first_execution_ms": 269.4354970008135,
+      "median_ms": 191.2161698564887,
+      "min_ms": 189.33043908327818,
+      "max_ms": 197.1665029413998,
+      "samples_ms": [
+        191.2161698564887,
+        197.1665029413998,
+        195.40268229320645,
+        193.0911187082529,
+        189.33043908327818,
+        190.75037213042378,
+        190.5574258416891
+      ],
+      "calls_per_sample": 1,
+      "cold_call_ms": 520.7954999059439,
+      "rss_before_compile_mib": 198.5078125,
+      "rss_before_execution_mib": 239.16796875,
+      "process_peak_rss_mib": 252.0,
+      "xla_executable_memory": {
+        "argument_size_in_bytes": 1575784,
+        "output_size_in_bytes": 115200,
+        "temp_size_in_bytes": 5911216,
+        "alias_size_in_bytes": 0
+      },
+      "errors_vs_torch": [
+        {
+          "relative_l2": 5.4238427097194066e-06,
+          "max_absolute": 0.0005049705505371094
+        }
+      ]
+    },
+    {
+      "case": "large",
+      "shape": [
+        1,
+        256,
+        256
+      ],
+      "views": 90,
+      "detectors": 320,
+      "backend": "torch",
+      "operation": "loss_grad",
+      "versions": {
+        "torch": "2.15.0+cpu",
+        "numpy": "2.5.4"
+      },
+      "device": "cpu",
+      "cpu_affinity": [
+        2
+      ],
+      "initialization_ms": 900.9099029935896,
+      "trace_compile_ms": 0.0,
+      "first_execution_ms": 457.73136196658015,
+      "median_ms": 434.27959084510803,
+      "min_ms": 431.6138322465122,
+      "max_ms": 437.1919077821076,
+      "samples_ms": [
+        435.26683934032917,
+        433.36970871314406,
+        437.1919077821076,
+        431.6138322465122,
+        434.27959084510803,
+        431.7809948697686,
+        434.46355033665895
+      ],
+      "calls_per_sample": 1,
+      "cold_call_ms": 457.73136196658015,
+      "rss_before_compile_mib": 235.7109375,
+      "rss_before_execution_mib": 235.71484375,
+      "process_peak_rss_mib": 300.5546875,
+      "xla_executable_memory": null,
+      "errors_vs_torch": [
+        {
+          "relative_l2": 0.0,
+          "max_absolute": 0.0
+        },
+        {
+          "relative_l2": 0.0,
+          "max_absolute": 0.0
+        }
+      ]
+    },
+    {
+      "case": "large",
+      "shape": [
+        1,
+        256,
+        256
+      ],
+      "views": 90,
+      "detectors": 320,
+      "backend": "jax-vmap",
+      "operation": "loss_grad",
+      "versions": {
+        "jax": "0.12.0.1",
+        "jaxlib": "0.12.0.1",
+        "optax": "0.2.8",
+        "numpy": "2.5.4"
+      },
+      "device": "cpu:0",
+      "cpu_affinity": [
+        2
+      ],
+      "initialization_ms": 414.871612098068,
+      "trace_compile_ms": 585.6059421785176,
+      "first_execution_ms": 1136.0602667555213,
+      "median_ms": 1196.2887537665665,
+      "min_ms": 1167.484126985073,
+      "max_ms": 1230.8937329798937,
+      "samples_ms": [
+        1230.8937329798937,
+        1229.7562309540808,
+        1206.820695195347,
+        1167.484126985073,
+        1172.8702490217984,
+        1196.2887537665665,
+        1179.7517887316644
+      ],
+      "calls_per_sample": 1,
+      "cold_call_ms": 1721.6662089340389,
+      "rss_before_compile_mib": 198.0546875,
+      "rss_before_execution_mib": 262.05859375,
+      "process_peak_rss_mib": 1475.58203125,
+      "xla_executable_memory": {
+        "argument_size_in_bytes": 1690984,
+        "output_size_in_bytes": 262164,
+        "temp_size_in_bytes": 1241049600,
+        "alias_size_in_bytes": 0
+      },
+      "errors_vs_torch": [
+        {
+          "relative_l2": 7.842832768453303e-08,
+          "max_absolute": 6.103515625e-05
+        },
+        {
+          "relative_l2": 5.778150519423264e-07,
+          "max_absolute": 4.76837158203125e-07
+        }
+      ]
+    },
+    {
+      "case": "large",
+      "shape": [
+        1,
+        256,
+        256
+      ],
+      "views": 90,
+      "detectors": 320,
+      "backend": "jax-scan",
+      "operation": "loss_grad",
+      "versions": {
+        "jax": "0.12.0.1",
+        "jaxlib": "0.12.0.1",
+        "optax": "0.2.8",
+        "numpy": "2.5.4"
+      },
+      "device": "cpu:0",
+      "cpu_affinity": [
+        2
+      ],
+      "initialization_ms": 413.50331995636225,
+      "trace_compile_ms": 586.6334559395909,
+      "first_execution_ms": 520.4321867786348,
+      "median_ms": 448.6095127649605,
+      "min_ms": 445.0607872568071,
+      "max_ms": 453.5189149901271,
+      "samples_ms": [
+        447.4882702343166,
+        448.6095127649605,
+        449.5455250144005,
+        445.0607872568071,
+        453.5189149901271,
+        449.53972613438964,
+        446.7278248630464
+      ],
+      "calls_per_sample": 1,
+      "cold_call_ms": 1107.0656427182257,
+      "rss_before_compile_mib": 198.05078125,
+      "rss_before_execution_mib": 266.203125,
+      "process_peak_rss_mib": 285.57421875,
+      "xla_executable_memory": {
+        "argument_size_in_bytes": 1690984,
+        "output_size_in_bytes": 262164,
+        "temp_size_in_bytes": 8781584,
+        "alias_size_in_bytes": 0
+      },
+      "errors_vs_torch": [
+        {
+          "relative_l2": 7.842832768453303e-08,
+          "max_absolute": 6.103515625e-05
+        },
+        {
+          "relative_l2": 5.38570318254077e-07,
+          "max_absolute": 3.501772880554199e-07
+        }
+      ]
+    },
+    {
+      "case": "large",
+      "shape": [
+        1,
+        256,
+        256
+      ],
+      "views": 90,
+      "detectors": 320,
+      "backend": "jax-custom_jvp",
+      "operation": "loss_grad",
+      "versions": {
+        "jax": "0.12.0.1",
+        "jaxlib": "0.12.0.1",
+        "optax": "0.2.8",
+        "numpy": "2.5.4"
+      },
+      "device": "cpu:0",
+      "cpu_affinity": [
+        2
+      ],
+      "initialization_ms": 408.8348411023617,
+      "trace_compile_ms": 556.6696031019092,
+      "first_execution_ms": 520.2877791598439,
+      "median_ms": 442.2757769934833,
+      "min_ms": 438.3547231554985,
+      "max_ms": 446.84116588905454,
+      "samples_ms": [
+        444.73618268966675,
+        446.84116588905454,
+        441.28188816830516,
+        446.0103618912399,
+        438.3547231554985,
+        441.4737243205309,
+        442.2757769934833
+      ],
+      "calls_per_sample": 1,
+      "cold_call_ms": 1076.957382261753,
+      "rss_before_compile_mib": 198.55859375,
+      "rss_before_execution_mib": 264.0390625,
+      "process_peak_rss_mib": 277.078125,
+      "xla_executable_memory": {
+        "argument_size_in_bytes": 1690984,
+        "output_size_in_bytes": 262164,
+        "temp_size_in_bytes": 8781552,
+        "alias_size_in_bytes": 0
+      },
+      "errors_vs_torch": [
+        {
+          "relative_l2": 7.842832768453303e-08,
+          "max_absolute": 6.103515625e-05
+        },
+        {
+          "relative_l2": 5.38570318254077e-07,
+          "max_absolute": 3.501772880554199e-07
+        }
+      ]
+    },
+    {
+      "case": "large",
+      "shape": [
+        1,
+        256,
+        256
+      ],
+      "views": 90,
+      "detectors": 320,
+      "backend": "torch",
+      "operation": "reconstruct",
+      "versions": {
+        "torch": "2.15.0+cpu",
+        "numpy": "2.5.4"
+      },
+      "device": "cpu",
+      "cpu_affinity": [
+        2
+      ],
+      "initialization_ms": 905.4047148674726,
+      "trace_compile_ms": 0.0,
+      "first_execution_ms": 14315.376315265894,
+      "median_ms": 13475.096171256155,
+      "min_ms": 13372.644978109747,
+      "max_ms": 13523.014463018626,
+      "samples_ms": [
+        13372.644978109747,
+        13475.096171256155,
+        13523.014463018626
+      ],
+      "calls_per_sample": 1,
+      "cold_call_ms": 14315.376315265894,
+      "rss_before_compile_mib": 235.71875,
+      "rss_before_execution_mib": 235.71875,
+      "process_peak_rss_mib": 378.13671875,
+      "xla_executable_memory": null,
+      "errors_vs_torch": [
+        {
+          "relative_l2": 0.0,
+          "max_absolute": 0.0
+        }
+      ],
+      "initial_loss": 681.4349975585938,
+      "final_loss": 34.03059768676758
+    },
+    {
+      "case": "large",
+      "shape": [
+        1,
+        256,
+        256
+      ],
+      "views": 90,
+      "detectors": 320,
+      "backend": "jax-vmap",
+      "operation": "reconstruct",
+      "versions": {
+        "jax": "0.12.0.1",
+        "jaxlib": "0.12.0.1",
+        "optax": "0.2.8",
+        "numpy": "2.5.4"
+      },
+      "device": "cpu:0",
+      "cpu_affinity": [
+        2
+      ],
+      "initialization_ms": 445.95558475703,
+      "trace_compile_ms": 552.3174898698926,
+      "first_execution_ms": 8909.85930385068,
+      "median_ms": 8607.480921782553,
+      "min_ms": 8599.074678961188,
+      "max_ms": 8617.75802820921,
+      "samples_ms": [
+        8617.75802820921,
+        8607.480921782553,
+        8599.074678961188
+      ],
+      "calls_per_sample": 1,
+      "cold_call_ms": 9462.176793720573,
+      "rss_before_compile_mib": 215.91015625,
+      "rss_before_execution_mib": 266.52734375,
+      "process_peak_rss_mib": 1272.6953125,
+      "xla_executable_memory": {
+        "argument_size_in_bytes": 1690984,
+        "output_size_in_bytes": 262144,
+        "temp_size_in_bytes": 1006232464,
+        "alias_size_in_bytes": 0
+      },
+      "errors_vs_torch": [
+        {
+          "relative_l2": 7.559892948542489e-07,
+          "max_absolute": 2.21841037273407e-06
+        }
+      ],
+      "initial_loss": 681.4349975585938,
+      "final_loss": 34.03061294555664
+    },
+    {
+      "case": "large",
+      "shape": [
+        1,
+        256,
+        256
+      ],
+      "views": 90,
+      "detectors": 320,
+      "backend": "jax-scan",
+      "operation": "reconstruct",
+      "versions": {
+        "jax": "0.12.0.1",
+        "jaxlib": "0.12.0.1",
+        "optax": "0.2.8",
+        "numpy": "2.5.4"
+      },
+      "device": "cpu:0",
+      "cpu_affinity": [
+        2
+      ],
+      "initialization_ms": 439.89864690229297,
+      "trace_compile_ms": 679.7994473017752,
+      "first_execution_ms": 15132.82178901136,
+      "median_ms": 13308.285062201321,
+      "min_ms": 13287.603381089866,
+      "max_ms": 13345.04474978894,
+      "samples_ms": [
+        13308.285062201321,
+        13287.603381089866,
+        13345.04474978894
+      ],
+      "calls_per_sample": 1,
+      "cold_call_ms": 15812.621236313134,
+      "rss_before_compile_mib": 216.26171875,
+      "rss_before_execution_mib": 272.7109375,
+      "process_peak_rss_mib": 315.9296875,
+      "xla_executable_memory": {
+        "argument_size_in_bytes": 1690984,
+        "output_size_in_bytes": 262144,
+        "temp_size_in_bytes": 9568400,
+        "alias_size_in_bytes": 0
+      },
+      "errors_vs_torch": [
+        {
+          "relative_l2": 7.522336013958121e-07,
+          "max_absolute": 2.1741725504398346e-06
+        }
+      ],
+      "initial_loss": 681.4349975585938,
+      "final_loss": 34.03061294555664
+    },
+    {
+      "case": "large",
+      "shape": [
+        1,
+        256,
+        256
+      ],
+      "views": 90,
+      "detectors": 320,
+      "backend": "jax-custom_jvp",
+      "operation": "reconstruct",
+      "versions": {
+        "jax": "0.12.0.1",
+        "jaxlib": "0.12.0.1",
+        "optax": "0.2.8",
+        "numpy": "2.5.4"
+      },
+      "device": "cpu:0",
+      "cpu_affinity": [
+        2
+      ],
+      "initialization_ms": 444.07427310943604,
+      "trace_compile_ms": 661.7939379066229,
+      "first_execution_ms": 15670.123361051083,
+      "median_ms": 13294.442406389862,
+      "min_ms": 13253.439686726779,
+      "max_ms": 13394.749170169234,
+      "samples_ms": [
+        13394.749170169234,
+        13253.439686726779,
+        13294.442406389862
+      ],
+      "calls_per_sample": 1,
+      "cold_call_ms": 16331.917298957705,
+      "rss_before_compile_mib": 216.25,
+      "rss_before_execution_mib": 273.41796875,
+      "process_peak_rss_mib": 323.078125,
+      "xla_executable_memory": {
+        "argument_size_in_bytes": 1690984,
+        "output_size_in_bytes": 262144,
+        "temp_size_in_bytes": 9568328,
+        "alias_size_in_bytes": 0
+      },
+      "errors_vs_torch": [
+        {
+          "relative_l2": 7.522336013958121e-07,
+          "max_absolute": 2.1741725504398346e-06
+        }
+      ],
+      "initial_loss": 681.4349975585938,
+      "final_loss": 34.03061294555664
+    },
+    {
+      "case": "batch",
+      "shape": [
+        4,
+        128,
+        128
+      ],
+      "views": 48,
+      "detectors": 160,
+      "backend": "torch",
+      "operation": "forward",
+      "versions": {
+        "torch": "2.15.0+cpu",
+        "numpy": "2.5.4"
+      },
+      "device": "cpu",
+      "cpu_affinity": [
+        2
+      ],
+      "initialization_ms": 907.3921521194279,
+      "trace_compile_ms": 0.0,
+      "first_execution_ms": 63.39985504746437,
+      "median_ms": 60.20561698824167,
+      "min_ms": 58.851304929703474,
+      "max_ms": 63.65434266626835,
+      "samples_ms": [
+        60.20561698824167,
+        63.65434266626835,
+        58.87522688135505,
+        61.60214729607105,
+        60.090431943535805,
+        58.851304929703474,
+        60.68011000752449
+      ],
+      "calls_per_sample": 1,
+      "cold_call_ms": 63.39985504746437,
+      "rss_before_compile_mib": 233.7734375,
+      "rss_before_execution_mib": 233.7734375,
+      "process_peak_rss_mib": 241.80078125,
+      "xla_executable_memory": null,
+      "errors_vs_torch": [
+        {
+          "relative_l2": 0.0,
+          "max_absolute": 0.0
+        }
+      ]
+    },
+    {
+      "case": "batch",
+      "shape": [
+        4,
+        128,
+        128
+      ],
+      "views": 48,
+      "detectors": 160,
+      "backend": "jax-vmap",
+      "operation": "forward",
+      "versions": {
+        "jax": "0.12.0.1",
+        "jaxlib": "0.12.0.1",
+        "optax": "0.2.8",
+        "numpy": "2.5.4"
+      },
+      "device": "cpu:0",
+      "cpu_affinity": [
+        2
+      ],
+      "initialization_ms": 417.9868050850928,
+      "trace_compile_ms": 253.86981014162302,
+      "first_execution_ms": 213.02744699642062,
+      "median_ms": 203.2644571736455,
+      "min_ms": 202.574762981385,
+      "max_ms": 256.4855320379138,
+      "samples_ms": [
+        203.22051085531712,
+        256.4855320379138,
+        203.1003744341433,
+        203.2644571736455,
+        202.574762981385,
+        203.55754997581244,
+        205.51034715026617
+      ],
+      "calls_per_sample": 1,
+      "cold_call_ms": 466.89725713804364,
+      "rss_before_compile_mib": 196.1796875,
+      "rss_before_execution_mib": 234.66796875,
+      "process_peak_rss_mib": 429.3359375,
+      "xla_executable_memory": {
+        "argument_size_in_bytes": 591296,
+        "output_size_in_bytes": 122880,
+        "temp_size_in_bytes": 165918720,
+        "alias_size_in_bytes": 0
+      },
+      "errors_vs_torch": [
+        {
+          "relative_l2": 2.5418014538180263e-06,
+          "max_absolute": 0.00020503997802734375
+        }
+      ]
+    },
+    {
+      "case": "batch",
+      "shape": [
+        4,
+        128,
+        128
+      ],
+      "views": 48,
+      "detectors": 160,
+      "backend": "jax-scan",
+      "operation": "forward",
+      "versions": {
+        "jax": "0.12.0.1",
+        "jaxlib": "0.12.0.1",
+        "optax": "0.2.8",
+        "numpy": "2.5.4"
+      },
+      "device": "cpu:0",
+      "cpu_affinity": [
+        2
+      ],
+      "initialization_ms": 408.91872672364116,
+      "trace_compile_ms": 274.32417403906584,
+      "first_execution_ms": 126.3284208253026,
+      "median_ms": 114.91364566609263,
+      "min_ms": 113.7223457917571,
+      "max_ms": 121.53386976569891,
+      "samples_ms": [
+        114.2358579672873,
+        114.34881575405598,
+        113.7223457917571,
+        114.91364566609263,
+        114.97431993484497,
+        117.6180150359869,
+        121.53386976569891
+      ],
+      "calls_per_sample": 1,
+      "cold_call_ms": 400.65259486436844,
+      "rss_before_compile_mib": 196.30078125,
+      "rss_before_execution_mib": 239.5546875,
+      "process_peak_rss_mib": 245.1640625,
+      "xla_executable_memory": {
+        "argument_size_in_bytes": 591296,
+        "output_size_in_bytes": 122880,
+        "temp_size_in_bytes": 3577136,
+        "alias_size_in_bytes": 0
+      },
+      "errors_vs_torch": [
+        {
+          "relative_l2": 2.5418014538180263e-06,
+          "max_absolute": 0.00020503997802734375
+        }
+      ]
+    },
+    {
+      "case": "batch",
+      "shape": [
+        4,
+        128,
+        128
+      ],
+      "views": 48,
+      "detectors": 160,
+      "backend": "jax-custom_jvp",
+      "operation": "forward",
+      "versions": {
+        "jax": "0.12.0.1",
+        "jaxlib": "0.12.0.1",
+        "optax": "0.2.8",
+        "numpy": "2.5.4"
+      },
+      "device": "cpu:0",
+      "cpu_affinity": [
+        2
+      ],
+      "initialization_ms": 410.04640609025955,
+      "trace_compile_ms": 282.5527489185333,
+      "first_execution_ms": 124.02518978342414,
+      "median_ms": 115.04382267594337,
+      "min_ms": 113.33178402855992,
+      "max_ms": 119.23702713102102,
+      "samples_ms": [
+        114.09668112173676,
+        115.04382267594337,
+        115.3429951518774,
+        114.28596405312419,
+        113.33178402855992,
+        119.23702713102102,
+        117.77589796110988
+      ],
+      "calls_per_sample": 1,
+      "cold_call_ms": 406.57793870195746,
+      "rss_before_compile_mib": 196.109375,
+      "rss_before_execution_mib": 239.76171875,
+      "process_peak_rss_mib": 245.43359375,
+      "xla_executable_memory": {
+        "argument_size_in_bytes": 591296,
+        "output_size_in_bytes": 122880,
+        "temp_size_in_bytes": 3577136,
+        "alias_size_in_bytes": 0
+      },
+      "errors_vs_torch": [
+        {
+          "relative_l2": 2.5418014538180263e-06,
+          "max_absolute": 0.00020503997802734375
+        }
+      ]
+    },
+    {
+      "case": "batch",
+      "shape": [
+        4,
+        128,
+        128
+      ],
+      "views": 48,
+      "detectors": 160,
+      "backend": "torch",
+      "operation": "loss_grad",
+      "versions": {
+        "torch": "2.15.0+cpu",
+        "numpy": "2.5.4"
+      },
+      "device": "cpu",
+      "cpu_affinity": [
+        2
+      ],
+      "initialization_ms": 902.2537511773407,
+      "trace_compile_ms": 0.0,
+      "first_execution_ms": 142.2751508653164,
+      "median_ms": 137.01988896355033,
+      "min_ms": 134.5179290510714,
+      "max_ms": 138.63201392814517,
+      "samples_ms": [
+        137.01988896355033,
+        137.92396197095513,
+        138.63201392814517,
+        134.53435199335217,
+        136.64133613929152,
+        134.5179290510714,
+        138.3589757606387
+      ],
+      "calls_per_sample": 1,
+      "cold_call_ms": 142.2751508653164,
+      "rss_before_compile_mib": 233.94140625,
+      "rss_before_execution_mib": 233.94140625,
+      "process_peak_rss_mib": 253.4921875,
+      "xla_executable_memory": null,
+      "errors_vs_torch": [
+        {
+          "relative_l2": 0.0,
+          "max_absolute": 0.0
+        },
+        {
+          "relative_l2": 0.0,
+          "max_absolute": 0.0
+        }
+      ]
+    },
+    {
+      "case": "batch",
+      "shape": [
+        4,
+        128,
+        128
+      ],
+      "views": 48,
+      "detectors": 160,
+      "backend": "jax-vmap",
+      "operation": "loss_grad",
+      "versions": {
+        "jax": "0.12.0.1",
+        "jaxlib": "0.12.0.1",
+        "optax": "0.2.8",
+        "numpy": "2.5.4"
+      },
+      "device": "cpu:0",
+      "cpu_affinity": [
+        2
+      ],
+      "initialization_ms": 412.50650491565466,
+      "trace_compile_ms": 597.3903969861567,
+      "first_execution_ms": 414.3781769089401,
+      "median_ms": 404.7312857583165,
+      "min_ms": 401.78961493074894,
+      "max_ms": 414.4462547264993,
+      "samples_ms": [
+        407.2441756725311,
+        401.78961493074894,
+        404.7312857583165,
+        414.4462547264993,
+        406.0499300248921,
+        404.0908869355917,
+        403.885280713439
+      ],
+      "calls_per_sample": 1,
+      "cold_call_ms": 1011.7685738950968,
+      "rss_before_compile_mib": 196.109375,
+      "rss_before_execution_mib": 262.453125,
+      "process_peak_rss_mib": 503.5234375,
+      "xla_executable_memory": {
+        "argument_size_in_bytes": 714176,
+        "output_size_in_bytes": 262164,
+        "temp_size_in_bytes": 236851200,
+        "alias_size_in_bytes": 0
+      },
+      "errors_vs_torch": [
+        {
+          "relative_l2": 0.0,
+          "max_absolute": 0.0
+        },
+        {
+          "relative_l2": 4.226821617303511e-07,
+          "max_absolute": 6.705522537231445e-08
+        }
+      ]
+    },
+    {
+      "case": "batch",
+      "shape": [
+        4,
+        128,
+        128
+      ],
+      "views": 48,
+      "detectors": 160,
+      "backend": "jax-scan",
+      "operation": "loss_grad",
+      "versions": {
+        "jax": "0.12.0.1",
+        "jaxlib": "0.12.0.1",
+        "optax": "0.2.8",
+        "numpy": "2.5.4"
+      },
+      "device": "cpu:0",
+      "cpu_affinity": [
+        2
+      ],
+      "initialization_ms": 410.02098470926285,
+      "trace_compile_ms": 620.9371099248528,
+      "first_execution_ms": 208.01178785040975,
+      "median_ms": 186.45729729905725,
+      "min_ms": 180.36171700805426,
+      "max_ms": 189.72432799637318,
+      "samples_ms": [
+        189.72432799637318,
+        187.20284942537546,
+        186.40936771407723,
+        186.45729729905725,
+        184.9615639075637,
+        187.27149302139878,
+        180.36171700805426
+      ],
+      "calls_per_sample": 1,
+      "cold_call_ms": 828.9488977752626,
+      "rss_before_compile_mib": 196.18359375,
+      "rss_before_execution_mib": 265.984375,
+      "process_peak_rss_mib": 278.68359375,
+      "xla_executable_memory": {
+        "argument_size_in_bytes": 714176,
+        "output_size_in_bytes": 262164,
+        "temp_size_in_bytes": 4857104,
+        "alias_size_in_bytes": 0
+      },
+      "errors_vs_torch": [
+        {
+          "relative_l2": 0.0,
+          "max_absolute": 0.0
+        },
+        {
+          "relative_l2": 3.956417932971262e-07,
+          "max_absolute": 5.960464477539063e-08
+        }
+      ]
+    },
+    {
+      "case": "batch",
+      "shape": [
+        4,
+        128,
+        128
+      ],
+      "views": 48,
+      "detectors": 160,
+      "backend": "jax-custom_jvp",
+      "operation": "loss_grad",
+      "versions": {
+        "jax": "0.12.0.1",
+        "jaxlib": "0.12.0.1",
+        "optax": "0.2.8",
+        "numpy": "2.5.4"
+      },
+      "device": "cpu:0",
+      "cpu_affinity": [
+        2
+      ],
+      "initialization_ms": 393.13576370477676,
+      "trace_compile_ms": 586.8289689533412,
+      "first_execution_ms": 221.2993549183011,
+      "median_ms": 212.16453099623322,
+      "min_ms": 211.04181790724397,
+      "max_ms": 218.36417401209474,
+      "samples_ms": [
+        212.10661809891462,
+        214.8812161758542,
+        212.16453099623322,
+        211.04181790724397,
+        217.69540710374713,
+        218.36417401209474,
+        211.7869509384036
+      ],
+      "calls_per_sample": 1,
+      "cold_call_ms": 808.1283238716424,
+      "rss_before_compile_mib": 196.1875,
+      "rss_before_execution_mib": 264.3359375,
+      "process_peak_rss_mib": 272.30078125,
+      "xla_executable_memory": {
+        "argument_size_in_bytes": 714176,
+        "output_size_in_bytes": 262164,
+        "temp_size_in_bytes": 4857072,
+        "alias_size_in_bytes": 0
+      },
+      "errors_vs_torch": [
+        {
+          "relative_l2": 0.0,
+          "max_absolute": 0.0
+        },
+        {
+          "relative_l2": 3.956417932971262e-07,
+          "max_absolute": 5.960464477539063e-08
+        }
+      ]
+    },
+    {
+      "case": "batch",
+      "shape": [
+        4,
+        128,
+        128
+      ],
+      "views": 48,
+      "detectors": 160,
+      "backend": "torch",
+      "operation": "reconstruct",
+      "versions": {
+        "torch": "2.15.0+cpu",
+        "numpy": "2.5.4"
+      },
+      "device": "cpu",
+      "cpu_affinity": [
+        2
+      ],
+      "initialization_ms": 908.121882006526,
+      "trace_compile_ms": 0.0,
+      "first_execution_ms": 4932.562698144466,
+      "median_ms": 4084.2955028638244,
+      "min_ms": 4073.3272465877235,
+      "max_ms": 4118.099829182029,
+      "samples_ms": [
+        4084.2955028638244,
+        4118.099829182029,
+        4073.3272465877235
+      ],
+      "calls_per_sample": 1,
+      "cold_call_ms": 4932.562698144466,
+      "rss_before_compile_mib": 233.953125,
+      "rss_before_execution_mib": 233.95703125,
+      "process_peak_rss_mib": 332.0859375,
+      "xla_executable_memory": null,
+      "errors_vs_torch": [
+        {
+          "relative_l2": 0.0,
+          "max_absolute": 0.0
+        }
+      ],
+      "initial_loss": 173.21426391601562,
+      "final_loss": 8.635724067687988
+    },
+    {
+      "case": "batch",
+      "shape": [
+        4,
+        128,
+        128
+      ],
+      "views": 48,
+      "detectors": 160,
+      "backend": "jax-vmap",
+      "operation": "reconstruct",
+      "versions": {
+        "jax": "0.12.0.1",
+        "jaxlib": "0.12.0.1",
+        "optax": "0.2.8",
+        "numpy": "2.5.4"
+      },
+      "device": "cpu:0",
+      "cpu_affinity": [
+        2
+      ],
+      "initialization_ms": 444.66660311445594,
+      "trace_compile_ms": 562.3112232424319,
+      "first_execution_ms": 4649.128102697432,
+      "median_ms": 4528.132192790508,
+      "min_ms": 4508.46202718094,
+      "max_ms": 4535.59285402298,
+      "samples_ms": [
+        4508.46202718094,
+        4535.59285402298,
+        4528.132192790508
+      ],
+      "calls_per_sample": 1,
+      "cold_call_ms": 5211.439325939864,
+      "rss_before_compile_mib": 214.890625,
+      "rss_before_execution_mib": 266.3984375,
+      "process_peak_rss_mib": 501.25390625,
+      "xla_executable_memory": {
+        "argument_size_in_bytes": 714176,
+        "output_size_in_bytes": 262144,
+        "temp_size_in_bytes": 230529424,
+        "alias_size_in_bytes": 0
+      },
+      "errors_vs_torch": [
+        {
+          "relative_l2": 5.05837596065947e-07,
+          "max_absolute": 1.2665987014770508e-06
+        }
+      ],
+      "initial_loss": 173.21426391601562,
+      "final_loss": 8.635726928710938
+    },
+    {
+      "case": "batch",
+      "shape": [
+        4,
+        128,
+        128
+      ],
+      "views": 48,
+      "detectors": 160,
+      "backend": "jax-scan",
+      "operation": "reconstruct",
+      "versions": {
+        "jax": "0.12.0.1",
+        "jaxlib": "0.12.0.1",
+        "optax": "0.2.8",
+        "numpy": "2.5.4"
+      },
+      "device": "cpu:0",
+      "cpu_affinity": [
+        2
+      ],
+      "initialization_ms": 443.0795428343117,
+      "trace_compile_ms": 715.575004927814,
+      "first_execution_ms": 5885.130754671991,
+      "median_ms": 5573.373221792281,
+      "min_ms": 5548.653137870133,
+      "max_ms": 5585.984313860536,
+      "samples_ms": [
+        5585.984313860536,
+        5548.653137870133,
+        5573.373221792281
+      ],
+      "calls_per_sample": 1,
+      "cold_call_ms": 6600.705759599805,
+      "rss_before_compile_mib": 214.875,
+      "rss_before_execution_mib": 274.73046875,
+      "process_peak_rss_mib": 318.5859375,
+      "xla_executable_memory": {
+        "argument_size_in_bytes": 714176,
+        "output_size_in_bytes": 262144,
+        "temp_size_in_bytes": 5643920,
+        "alias_size_in_bytes": 0
+      },
+      "errors_vs_torch": [
+        {
+          "relative_l2": 5.022673592704513e-07,
+          "max_absolute": 1.2516975402832031e-06
+        }
+      ],
+      "initial_loss": 173.21426391601562,
+      "final_loss": 8.635726928710938
+    },
+    {
+      "case": "batch",
+      "shape": [
+        4,
+        128,
+        128
+      ],
+      "views": 48,
+      "detectors": 160,
+      "backend": "jax-custom_jvp",
+      "operation": "reconstruct",
+      "versions": {
+        "jax": "0.12.0.1",
+        "jaxlib": "0.12.0.1",
+        "optax": "0.2.8",
+        "numpy": "2.5.4"
+      },
+      "device": "cpu:0",
+      "cpu_affinity": [
+        2
+      ],
+      "initialization_ms": 441.9580823741853,
+      "trace_compile_ms": 676.486964803189,
+      "first_execution_ms": 6406.055150087923,
+      "median_ms": 6393.133122008294,
+      "min_ms": 6369.598740711808,
+      "max_ms": 6402.953546959907,
+      "samples_ms": [
+        6402.953546959907,
+        6369.598740711808,
+        6393.133122008294
+      ],
+      "calls_per_sample": 1,
+      "cold_call_ms": 7082.542114891112,
+      "rss_before_compile_mib": 214.94140625,
+      "rss_before_execution_mib": 273.4140625,
+      "process_peak_rss_mib": 293.42578125,
+      "xla_executable_memory": {
+        "argument_size_in_bytes": 714176,
+        "output_size_in_bytes": 262144,
+        "temp_size_in_bytes": 5643848,
+        "alias_size_in_bytes": 0
+      },
+      "errors_vs_torch": [
+        {
+          "relative_l2": 5.022673592704513e-07,
+          "max_absolute": 1.2516975402832031e-06
+        }
+      ],
+      "initial_loss": 173.21426391601562,
+      "final_loss": 8.635726928710938
+    }
+  ],
+  "load_average_end": [
+    1.69677734375,
+    1.64697265625,
+    1.50341796875
+  ]
+}

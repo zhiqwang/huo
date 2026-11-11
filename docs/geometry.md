@@ -10,7 +10,8 @@ parameter names and scanner orientation follow torch-radon's
 [Python API](https://github.com/matteo-ronchetti/torch-radon/blob/5796b2a07e3bb0a248430e9a07fb48db5994d4ea/torch_radon/__init__.py)
 and [fan-beam kernel](https://github.com/matteo-ronchetti/torch-radon/blob/5796b2a07e3bb0a248430e9a07fb48db5994d4ea/src/forward.cu).
 The [Tutorial](tutorial.md) demonstrates Python's `FanbeamProjector` and
-loss-based reconstruction. The browser example shares the forward geometry.
+loss-based reconstruction. The browser jax-js backend shares this geometry
+and differentiates the same sampled forward model.
 
 ## Fan-beam layout
 
@@ -44,10 +45,10 @@ TypeScript use identical field names, including snake case.
 | $u$ | Detector coordinate | Signed position along the detector. |
 | $t$ | Ray distance | Distance from $S$ along a ray, in pixels. |
 | $q_{\rm ray}$ | `ray_sampling` | Integration intervals per pixel along a ray. |
-| $L=N$ | Ray-window length | Image side length; the browser ART example also uses it to normalize updates. |
+| $L=N$ | Ray-window length | Image side length; historical ART used it to normalize residual updates. |
 
 The gantry rotates by $R_{-\theta}$. To locate a pixel in the scanner frame,
-the browser backfill uses the inverse rotation $R_\theta$:
+the historical residual-backfill model uses the inverse rotation $R_\theta$:
 
 $$
 R_\theta=\begin{pmatrix}\cos\theta&-\sin\theta\\
@@ -57,7 +58,7 @@ R_\theta=\begin{pmatrix}\cos\theta&-\sin\theta\\
 $$
 
 With the downward y axis, a positive public angle rotates the gantry
-counterclockwise on the page. All pixel centres being backprojected must be
+counterclockwise on the page. In that backfill model, pixel centres being backprojected must be
 in front of the source: $d_s-y'>0$. Intersecting the source-to-pixel line
 with the detector plane gives
 
@@ -93,11 +94,14 @@ The implementation names the extents `pixel_extent` and `det_extent`.
 [Open the diagram](_static/figures/sampling-centres.svg).
 
 `FanbeamGeometry` owns these derived quantities. Python's `FanbeamProjector`
-and the browser's `RadonFanbeam` cache zero-angle ray coordinates. Python uses
-`grid_sample(..., align_corners=True)`; TypeScript uses the same mapping from
-$\pm a_x$ to $\pm1$. The browser backfill interpolates detector rows at
-$u/\Delta u+(M-1)/2$. Python instead differentiates its actual image sampling
-weights to propagate projection-loss gradients.
+implementations and TypeScript's `FanbeamProjector` cache zero-angle ray coordinates.
+PyTorch uses `grid_sample(..., align_corners=True)`; JAX uses linear
+`map_coordinates` with partial zero padding and pixel-index coordinates.
+TypeScript uses native jax-js gathers with the same mapping from
+$\pm a_x$ to $\pm1$ and partial zero padding. All current backends differentiate
+their actual image sampling weights to propagate projection-loss gradients.
+The historical residual backfill interpolated detector rows at
+$u/\Delta u+(M-1)/2$, which is a different operation.
 
 The fixed ray window has $K=q_{\rm ray}N$ intervals and $K+1$ samples:
 
@@ -110,8 +114,10 @@ y(t,u)&=d_s-\frac{tD}{\sqrt{u^2+D^2}}.
 $$
 
 `compute_ray_coordinates` returns `ray_x` and `ray_y` normalized by
-`pixel_extent`, with shape `[ray_sample_count, det_count]`. Python forms these
-coordinates with outer products of ray distances and detector directions.
+`pixel_extent`, with shape `[ray_sample_count, det_count]`. The shared NumPy
+implementation forms these coordinates in float64 with outer products, then
+converts to the requested float32/float64 dtype. Each backend prepares its own
+arrays from those coordinates outside differentiation.
 The code rotates these positions by $R_{-\theta}$ and sums interpolated values with weight
 `ray_step`. Both endpoints receive the full weight. The window is not a
 ray intersection with the full square, and can omit support near corners.
@@ -126,13 +132,15 @@ The Python autograd path uses the sampled transpose internally.
 ## Parameters
 
 Python constructs `FanbeamGeometry` explicitly, then passes it and the angles
-to `FanbeamProjector`. The TypeScript browser example uses the same geometry
-fields in its own `RadonFanbeam` constructor. Reconstruction APIs differ.
+to `huo.torch.FanbeamProjector(...)` or `huo.jax.FanbeamProjector.create(...)`.
+TypeScript uses `new FanbeamProjector(geometry, angles)` with the same geometry
+fields. The browser helper is asynchronous to support rendering and cancellation;
+its loss and Adam update semantics match Python.
 
 `resolution` and `det_count` must be integers at least two, `ray_sampling`
 a positive integer, and scanner lengths positive and finite. The source
 distance must exceed $N/2$ so the entire ray window is in front of the source.
-The browser backfill additionally requires $d_s-y'>0$ at each backprojected pixel.
+The historical backfill additionally required $d_s-y'>0$ at each backprojected pixel.
 
 | Geometry field | Python CLI | Unit |
 | --- | --- | --- |

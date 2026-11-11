@@ -4,7 +4,8 @@ tocdepth: 2
 
 # Tutorial
 
-Huo's Python workflow is an ordinary PyTorch optimization loop. A fixed
+This tutorial uses Huo's PyTorch backend; the [JAX guide](jax.md) covers its
+PyTree and JIT workflow. A fixed
 `FanbeamProjector` maps the current image to predicted measurements. A scalar
 loss compares the prediction with a fixed measured sinogram. `loss.backward()`
 computes image gradients, and `optimizer.step()` updates the image.
@@ -17,7 +18,7 @@ integrals. Huo reads line integrals; it does not perform that preprocessing.
 Use Python 3.11 or newer. From the repository root:
 
 ```bash
-uv sync --locked --python 3.12
+uv sync --locked --python 3.12 --extra torch
 source .venv/bin/activate
 ```
 
@@ -34,7 +35,8 @@ The target is computed once and detached before optimization.
 import math
 import numpy as np
 import torch
-from huo import FanbeamGeometry, FanbeamProjector
+from huo import FanbeamGeometry
+from huo.torch import FanbeamProjector
 
 geometry = FanbeamGeometry(
     resolution=32,
@@ -88,7 +90,7 @@ no `retain_graph=True` or explicit backprojection call is needed.
 The helper performs the same Adam loop, using half mean squared error:
 
 ```python
-from huo import reconstruct
+from huo.torch import reconstruct
 
 result = reconstruct(projector, measured, steps=200, lr=0.03)
 ```
@@ -203,34 +205,35 @@ Run `huo-reconstruct --help` for all options.
 ## Checks and benchmarks
 
 ```bash
-uv sync --locked --group test
+uv sync --locked --all-extras --group test
 npm --prefix packages ci
 npm --prefix packages test
-uv run --locked --group test pytest tests -q
-uv run --locked python -m benchmarks.autograd --batch-size 2
+uv run --locked --all-extras --group test pytest tests -q
+uv run --locked --extra torch python -m benchmarks.autograd --batch-size 2
 ```
 
 Tests check the actual sampled matrix, finite differences, gradient transforms,
-module state, optimizer behavior, and forward-projection parity with TypeScript.
+module state, optimizer behavior, and projection/derivative/reconstruction parity with TypeScript.
 Memory regressions bound retained sampling storage. Benchmarks report timings
 and unique live tensor storage; wall-clock thresholds are not enforced in CI.
 
 ## Browser demo
 
-The [browser demo](demo/index.md) is a separate TypeScript ART-style example.
-It shares coordinates, ray sampling, and sinogram layout with the Python
-projector. Its reconstruction backfills one angle's residual at a time and
-uses a random angle order. That update is not the Python Adam loss loop.
+The [browser demo](demo/index.md) uses TypeScript and jax-js native gradients.
+It shares coordinates, sampling, sinogram layout and the Adam projection-loss
+objective with Python. See the [jax-js guide](jax_js.md) for its pure forward
+function, explicit array ownership and asynchronous reconstruction helper.
 
 Build the standalone example with:
 
 ```bash
 npm --prefix packages ci
 npm --prefix packages run build
-python -m http.server 8080 --bind 0.0.0.0 --directory packages
+python -m http.server 8080 --bind 0.0.0.0 --directory packages/dist
 ```
 
 Open `http://localhost:8080/demo/`. Use the
 [Sphinx preview](publishing.md#local-preview-and-strict-build) for the complete
 site and themed demo. The demo loads jax-js from `esm.sh` and requires access
-to that CDN. Its typed-array sampling loops run in JavaScript.
+to that CDN. Sampling, derivatives and optimizer updates execute through
+jax-js on WebGPU when available, or WASM otherwise.

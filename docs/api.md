@@ -1,12 +1,17 @@
 # Python API
 
 ```python
-from huo import FanbeamGeometry, FanbeamProjector, reconstruct
+from huo import FanbeamGeometry
 ```
 
-The projector handles the forward physical model. PyTorch owns losses,
-gradients, and parameter updates. Its transpose is an internal autograd detail;
-the Python API has no separate backprojection, adjoint, or ART entry point.
+Choose `from huo.torch import FanbeamProjector, reconstruct` or
+`from huo.jax import FanbeamProjector, reconstruct`. The base package has only
+a NumPy dependency; `huo[torch]` and `huo[jax]` install the respective backend.
+The top-level namespace exports only `FanbeamGeometry`.
+
+Both projectors handle the forward physical model. Their framework owns losses,
+gradients, and parameter updates. The transpose is internal to differentiation;
+there is no separate backprojection, adjoint, or ART entry point.
 
 ## FanbeamGeometry
 
@@ -28,7 +33,7 @@ All lengths are in pixels. Derived properties are `source_detector_distance`,
 
 ## FanbeamProjector
 
-`FanbeamProjector(geometry, angles, *, dtype=torch.float32)` is a
+`huo.torch.FanbeamProjector(geometry, angles, *, dtype=torch.float32)` is a
 `torch.nn.Module`. Call `projector(image)` to evaluate its forward model.
 
 | Argument or result | Contract |
@@ -61,7 +66,8 @@ including any earlier dtype conversion.
 
 ```python
 import torch
-from huo import FanbeamGeometry, FanbeamProjector
+from huo import FanbeamGeometry
+from huo.torch import FanbeamProjector
 
 geometry = FanbeamGeometry(8, 32, 16, 12, 1.3)
 projector = FanbeamProjector(geometry, [0.0, 0.5])
@@ -70,31 +76,67 @@ restored = FanbeamProjector(geometry, [0.0, 0.0])
 restored.load_state_dict(torch.load("projector.pt", weights_only=True))
 ```
 
+## JAX FanbeamProjector
+
+`huo.jax.FanbeamProjector.create(geometry, angles, *, dtype=jnp.float32,
+method="scan", device=None)` prepares an immutable PyTree outside JIT.
+Call `projector(image)` for the same `[..., N, N] -> [..., V, M]` mapping.
+
+| Part | Contract |
+| --- | --- |
+| Array leaves | Owned `angles`, `ray_x`, and `ray_y` arrays. They are dynamic JIT inputs; geometry gradients are stopped. |
+| Static metadata | `resolution`, `ray_step`, and `method`. Physical distances are encoded in the rays, so changing their values at fixed shapes can reuse compiled code. |
+| `method` | `"scan"` (default) uses checkpointed per-view sampling; `"vmap"` vectorizes angles and can require much more memory. |
+| `dtype` | float32 or float64; float64 requires JAX x64 mode to be enabled before construction and evaluation. |
+| `device` | A JAX device/sharding or None for default placement. Use `jax.device_put` to move the whole PyTree. |
+| Input | JAX/NumPy floating array with nonempty trailing shape `[N, N]`, matching the projector dtype. |
+| Properties | `views`, `det_count`, `dtype`, plus the state fields above. |
+
+Pass the projector as an explicit argument to a compiled function. PyTree
+flatten/unflatten preserves all sampled-operator state. Array conversions via
+`jax.tree.map` convert existing coordinates; a new float64 `create()` computes
+coordinates in double precision. The original physical configuration is kept
+by the caller, not stored as a static JIT cache key.
+
+Eager calls reject nonfinite images. Under JAX transformations, shape/dtype
+checks remain active, while finite-value checks require `checkify.checkify`
+before JIT. See the [JAX guide](jax.md#validation) for checked compiled calls.
+Native AD supports `grad`, `jvp`, `vjp`, Jacobians, Hessians and `vmap`; no
+custom derivative rule is used by the production backend.
+
 ## reconstruct
 
 `reconstruct(projector, measured, *, steps=300, lr=1e-2,
-initial_image=None, nonnegative=True)` performs Adam image optimization.
+initial_image=None, nonnegative=True)` performs Adam image optimization in
+either `huo.torch` or `huo.jax`, using that backend's projector and arrays.
 
 | Argument or result | Contract |
 | --- | --- |
 | `projector` | A configured `FanbeamProjector`. |
-| `measured` | Fixed finite measurements `[..., V, M]`, matching the projector dtype and device. |
+| `measured` | Fixed finite measurements `[..., V, M]`, matching the projector dtype. PyTorch requires CPU tensors; JAX uses its native placement. |
 | `steps` | Positive integer number of optimizer updates. |
 | `lr` | Positive finite Adam learning rate. |
-| `initial_image` | Optional tensor `[..., N, N]` with exactly the measurement batch dimensions. Defaults to zeros. |
+| `initial_image` | Optional array `[..., N, N]` with exactly the measurement batch dimensions. Defaults to zeros. |
 | `nonnegative` | Clamp the initial image and each updated image at zero when true. |
-| Return value | Detached image `[..., N, N]` with the input dtype and device. |
+| Return value | Backend-native image `[..., N, N]`, with gradients through the solver stopped. |
 
 The objective is half the mean squared projection residual, averaged over all
 batch, angle, and detector entries. The helper copies measurements and the
-initial image; it does not modify caller-owned tensors, gradients, module
-buffers, or the random-number generator. It enables gradients locally even
-inside outer `no_grad` or `inference_mode` contexts.
+initial image in PyTorch, and treats JAX arrays as immutable. It does not modify
+caller-owned arrays, gradients, scanner state, or random-number generators.
+The PyTorch helper enables gradients locally even inside outer `no_grad` or
+`inference_mode` contexts.
 
-This helper does not differentiate through optimizer steps. Use the module
+The JAX helper JIT-compiles and caches the full Optax/`lax.scan` loop. Its
+`steps`, `lr`, and `nonnegative` settings must be static when called under an
+outer JIT. Eager calls check measurements, the initial image, and the final
+result for finite values; transformed calls use the same opt-in checkify
+contract as the projector. JAX controls device placement.
+
+This helper does not differentiate through optimizer steps. Use the projector
 directly to train a network, introduce a custom loss, choose another optimizer,
-or implement an unrolled optimization method. The [tutorial](tutorial.md)
-shows those standard PyTorch workflows.
+or implement an unrolled optimization method. The [PyTorch tutorial](tutorial.md)
+and [JAX guide](jax.md) show custom optimization workflows.
 
 ## Command line
 
@@ -102,7 +144,10 @@ shows those standard PyTorch workflows.
 arguments are the measurement file, `--angles`, `--output`, `--resolution`,
 `--source-distance`, `--det-distance`, and `--det-spacing`. Detector count is
 inferred from the final measurement dimension. Optional arguments are
-`--ray-sampling`, `--steps`, `--lr`, and `--allow-negative`.
+`--ray-sampling`, `--steps`, `--lr`, `--allow-negative`, and `--backend torch|jax`
+(default `torch`). `--method scan|vmap` selects JAX angle traversal and is
+rejected for the PyTorch backend. Only the selected framework is imported;
+missing extras produce an installation hint instead of backend fallback.
 
 Numeric inputs are converted to float32. Geometry and shape errors are reported
 as command-line errors. The output includes image shape, iteration count, and

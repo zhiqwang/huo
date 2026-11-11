@@ -6,11 +6,13 @@ from pathlib import Path
 import weakref
 
 import pytest
-import torch
+
+torch = pytest.importorskip("torch")
 from torch.autograd import gradcheck, gradgradcheck
 
-from huo import FanbeamGeometry, FanbeamProjector
-from huo._autograd import _Project
+from huo import FanbeamGeometry
+from huo.torch import FanbeamProjector
+from huo.torch._autograd import _Project
 
 
 def sampled_matrix(projector):

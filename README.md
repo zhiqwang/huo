@@ -1,18 +1,19 @@
 # Huo
 
-Differentiable fan-beam CT projection and image reconstruction with PyTorch.
+Differentiable fan-beam CT projection and image reconstruction with PyTorch, JAX and browser jax-js.
 Huo maps an image to predicted line integrals; a loss compares them with fixed
-measurements, and a PyTorch optimizer updates the image or a neural network.
+measurements, and an optimizer updates the image or a neural network.
 
 ```text
 image → FanbeamProjector → predicted sinogram → loss against measured sinogram
   ↑                                              │
-  └──────── optimizer.step() ← loss.backward() ───┘
+  └──────── parameter update ← automatic gradient ┘
 ```
 
-The public Python API contains `FanbeamGeometry`, `FanbeamProjector`, and
-`reconstruct`. The projector is an `nn.Module` with fixed scanner buffers.
-Its autograd implementation handles the discrete transpose internally.
+`huo.FanbeamGeometry` is shared. Choose `huo.torch` for an `nn.Module` projector,
+or `huo.jax` for an immutable PyTree projector. Both backends expose
+`FanbeamProjector` and `reconstruct`, and compute the sampled transpose through
+automatic differentiation. Only the selected backend is imported.
 
 ## Installation
 
@@ -21,20 +22,29 @@ Python 3.11 or newer is required. Install the locked CPU environment with uv:
 ```bash
 git clone https://github.com/zhiqwang/huo.git
 cd huo
-uv sync --locked --python 3.12
+uv sync --locked --python 3.12 --extra torch
 source .venv/bin/activate
 ```
 
-The project pins PyTorch `2.15.0+cpu`. Images and measurements use CPU float32
-or float64 and must match the projector's dtype. Angles are radians and all
-scanner distances are in pixels.
+Use `--extra jax` for JAX/Optax, or `--all-extras` for both. The base package
+requires only NumPy. Python 3.11 and 3.12 are tested; the lockfile selects the
+appropriate JAX version. PyTorch is pinned to `2.15.0+cpu` from its CPU index.
+For a wheel installation outside uv, install the PyTorch extra with
+`pip install 'huo[torch]' --extra-index-url https://download.pytorch.org/whl/cpu`,
+or use `pip install 'huo[jax]'` for JAX.
 
-## Optimize an image
+Python images and measurements are float32/float64 and must match the projector's
+dtype; the browser backend supports float32. Angles are radians and scanner
+distances are in pixels. The PyTorch backend is CPU-only; JAX uses its configured
+device, with CPU correctness covered by this project's tests.
+
+## Optimize an image with PyTorch
 
 ```python
 import math
 import torch
-from huo import FanbeamGeometry, FanbeamProjector
+from huo import FanbeamGeometry
+from huo.torch import FanbeamProjector
 
 geometry = FanbeamGeometry(
     resolution=32,
@@ -67,7 +77,7 @@ reconstructed = image.detach()
 The same loop is available as a convenience function:
 
 ```python
-from huo import reconstruct
+from huo.torch import reconstruct
 reconstructed = reconstruct(projector, measured, steps=200, lr=0.03)
 ```
 
@@ -76,10 +86,33 @@ another optimizer, add regularization, or train a network. Native batch shapes
 `[..., N, N] → [..., V, M]`, `torch.func` transforms, higher-order input
 derivatives, module dtype conversion, and `state_dict` are supported.
 
+## Reconstruct with JAX
+
+```python
+import jax
+import jax.numpy as jnp
+from huo import FanbeamGeometry
+from huo.jax import FanbeamProjector, reconstruct
+
+geometry = FanbeamGeometry(32, 128, 64, 40, 1.3)
+angles = jnp.arange(24, dtype=jnp.float32) * (jnp.pi / 12)
+projector = FanbeamProjector.create(geometry, angles, method="scan")
+phantom = jnp.zeros((32, 32), dtype=jnp.float32).at[10:22, 12:20].set(1)
+measured = jax.jit(lambda state, image: state(image))(projector, phantom)
+reconstructed = reconstruct(projector, measured, steps=200, lr=0.03)
+```
+
+The JAX helper compiles the complete Adam loop. Pass the projector explicitly
+to JIT-compiled losses and training steps; its arrays are dynamic PyTree leaves.
+Native AD supports JVPs, VJPs, Hessians, and `vmap`. The default `scan` method
+recomputes sampling intermediates per view; `vmap` is an explicit alternative
+with higher memory demand. See the [JAX guide](docs/jax.md) for custom losses,
+device placement, float64, and compiled validation.
+
 ## Command line
 
 ```bash
-huo-reconstruct measured.npy --angles angles.npy \
+huo-reconstruct measured.npy --backend torch --angles angles.npy \
   --resolution 32 --source-distance 128 --det-distance 64 --det-spacing 1.3 \
   --steps 200 --lr 0.03 --output reconstruction.npy
 ```
@@ -87,45 +120,48 @@ huo-reconstruct measured.npy --angles angles.npy \
 The detector count comes from the last measurement dimension. The angle file
 must match the preceding dimension. Nonnegative image updates are enabled by
 default; `--allow-negative` disables the constraint.
+Select JAX with `--backend jax`; `--method scan|vmap` applies to that backend.
 
 ## Documentation and browser example
 
 - [Tutorial](docs/tutorial.md): complete PyTorch loops, batches, networks, and CLI.
+- [JAX guide](docs/jax.md): PyTree state, JIT, Optax, and input contracts.
+- [jax-js guide](docs/jax_js.md): native browser gradients, ownership, and chunked Adam.
 - [API](docs/api.md): geometry, module state, dtype, and optimizer contracts.
 - [Autograd reconstruction](docs/autograd.md): the loss and its discrete gradient.
+- [JAX comparison](docs/jax_benchmark.md): the original JAX reproduction with
+  numerical tests, CPU benchmarks, compilation costs, and memory measurements.
 - [Geometry](docs/geometry.md): scanner coordinates and sampling weights.
-- [Browser demo](https://zhiqwang.github.io/huo/demo/): a separate TypeScript ART
-  example. It shares forward geometry with Python and uses its own residual
-  backfill reconstruction algorithm.
+- [Browser demo](https://zhiqwang.github.io/huo/demo/): TypeScript loss optimization
+  using the same forward model and Adam objective, with progress and cancellation.
 
-The browser example and its [proof article](docs/backward_propagation_proof.md)
-illustrate ART-style updates; Python reconstruction uses loss minimization.
+The [proof article](docs/backward_propagation_proof.md) preserves mathematical
+analysis of the former ART-style residual-backfill algorithm. Current Python
+and browser reconstruction both use loss minimization.
 
 ## Checks
 
 ```bash
-uv sync --locked --group test
+uv sync --locked --all-extras --group test
 npm --prefix packages ci
 npm --prefix packages test
-uv run --locked --group test pytest tests -q
-uv run --locked python -m benchmarks.autograd
+uv run --locked --all-extras --group test pytest tests -q
+uv run --locked --extra torch python -m benchmarks.autograd
 ```
 
 Tests cover gradients, higher derivatives, batches, optimizer behavior, module
-state, and Python/TypeScript forward-projection parity. See
+state, and Python/TypeScript projection, derivative, and reconstruction parity. See
 [documentation publishing](docs/publishing.md) for Sphinx builds and Lean checks.
 
 ## Repository structure
 
 ```text
 huo/
-  geometry.py                 Immutable scanner geometry and ray coordinates
-  projector.py                FanbeamProjector(nn.Module)
-  _autograd.py                Private projection/transpose autograd pair
-  _validation.py              Tensor checks compatible with torch.func
-  reconstruction.py           Adam image optimization
-  cli.py                      NumPy input/output
-packages/                     TypeScript ART browser example
+  geometry.py                 Shared geometry and NumPy ray preparation
+  torch/                      nn.Module, private autograd pair, Adam solver
+  jax/                        PyTree, native AD sampling, compiled Optax solver
+  cli.py                      Backend selection and NumPy input/output
+packages/                     Differentiable jax-js operators and browser demo
 tests/                        Python regressions and shared geometry fixtures
 benchmarks/                   CPU timing and retained autograd storage
 docs/                         English Sphinx documentation

@@ -8,7 +8,7 @@ from dataclasses import dataclass
 import math
 from numbers import Integral
 
-import torch
+import numpy as np
 
 
 @dataclass(frozen=True)
@@ -63,18 +63,24 @@ class FanbeamGeometry:
         return 1 / self.ray_sampling
 
 
-def compute_ray_coordinates(geometry: FanbeamGeometry, *, dtype=torch.float32):
-    """Return normalized zero-angle ray positions [ray_sample_count, det_count]."""
-    u = torch.arange(geometry.det_count, dtype=torch.float64) - (geometry.det_count - 1) / 2
+def compute_ray_coordinates(geometry: FanbeamGeometry, *, dtype=np.float32):
+    """Return NumPy zero-angle rays [ray_sample_count, det_count].
+
+    Coordinates are prepared in float64 before the requested output conversion.
+    This initialization is shared by backends and runs outside differentiation.
+    """
+    if np.dtype(dtype) not in (np.dtype("float32"), np.dtype("float64")):
+        raise ValueError("dtype must be float32 or float64")
+    u = np.arange(geometry.det_count, dtype=np.float64) - (geometry.det_count - 1) / 2
     u = u * geometry.det_spacing
-    t = geometry.source_distance + torch.linspace(
+    t = geometry.source_distance + np.linspace(
         -geometry.resolution / 2,
         geometry.resolution / 2,
         geometry.ray_sample_count,
-        dtype=torch.float64,
+        dtype=np.float64,
     )
-    distance = torch.sqrt(u.square() + geometry.source_detector_distance**2)
+    distance = np.sqrt(u**2 + geometry.source_detector_distance**2)
     # Outer products pair every ray distance with every detector direction.
-    ray_x = torch.outer(t, u / distance)
-    ray_y = geometry.source_distance - torch.outer(t, geometry.source_detector_distance / distance)
-    return (ray_x / geometry.pixel_extent).to(dtype), (ray_y / geometry.pixel_extent).to(dtype)
+    ray_x = np.outer(t, u / distance)
+    ray_y = geometry.source_distance - np.outer(t, geometry.source_detector_distance / distance)
+    return (ray_x / geometry.pixel_extent).astype(dtype), (ray_y / geometry.pixel_extent).astype(dtype)

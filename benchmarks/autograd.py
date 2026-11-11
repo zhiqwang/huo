@@ -1,6 +1,6 @@
 """Measure forward/loss/gradient time and unique live saved tensor storage.
 
-Run from the repository root with ``uv run python -m benchmarks.autograd``.
+Run from the repository root with ``uv run --extra torch python -m benchmarks.autograd``.
 Storage measurements describe retained autograd buffers, not process peak memory.
 """
 
@@ -12,7 +12,8 @@ import weakref
 import torch
 from torch.utils.benchmark import Timer
 
-from huo import FanbeamGeometry, FanbeamProjector
+from huo import FanbeamGeometry
+from huo.torch import FanbeamProjector
 
 
 def retained_bytes(references):

@@ -5,9 +5,11 @@ import io
 import math
 
 import pytest
-import torch
 
-from huo import FanbeamGeometry, FanbeamProjector
+torch = pytest.importorskip("torch")
+
+from huo import FanbeamGeometry
+from huo.torch import FanbeamProjector
 
 
 def test_projection_shape_linearity_and_hooks(projector):

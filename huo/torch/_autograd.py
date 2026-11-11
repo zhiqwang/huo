@@ -1,4 +1,4 @@
-"""Fixed-geometry projection and its private transpose for automatic gradients."""
+"""PyTorch projection and its private transpose for automatic gradients."""
 
 import torch
 from torch.autograd import Function

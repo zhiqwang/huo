@@ -5,7 +5,7 @@ build-backend = "hatchling.build"
 [project]
 name = "huo"
 version = "0.1.0a0"
-description = "Differentiable fan-beam CT projection and loss-based reconstruction with PyTorch"
+description = "Differentiable fan-beam CT projection and reconstruction with PyTorch and JAX"
 readme = "README.md"
 license = "GPL-3.0-only"
 requires-python = ">=3.11"
@@ -28,7 +28,15 @@ classifiers = [
 ]
 dependencies = [
     "numpy>=1.18.5",
+]
+
+[project.optional-dependencies]
+torch = [
     "torch==2.15.0+cpu",
+]
+jax = [
+    "jax>=0.10.2",
+    "optax>=0.2.8",
 ]
 
 [dependency-groups]
