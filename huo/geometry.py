@@ -63,7 +63,7 @@ class FanbeamGeometry:
         return 1 / self.ray_sampling
 
 
-def compute_ray_coordinates(geometry):
+def compute_ray_coordinates(geometry: FanbeamGeometry, *, dtype=torch.float32):
     """Return normalized zero-angle ray positions [ray_sample_count, det_count]."""
     u = torch.arange(geometry.det_count, dtype=torch.float64) - (geometry.det_count - 1) / 2
     u = u * geometry.det_spacing
@@ -77,4 +77,4 @@ def compute_ray_coordinates(geometry):
     # Outer products pair every ray distance with every detector direction.
     ray_x = torch.outer(t, u / distance)
     ray_y = geometry.source_distance - torch.outer(t, geometry.source_detector_distance / distance)
-    return (ray_x / geometry.pixel_extent).float(), (ray_y / geometry.pixel_extent).float()
+    return (ray_x / geometry.pixel_extent).to(dtype), (ray_y / geometry.pixel_extent).to(dtype)
