@@ -5,26 +5,34 @@ Sphinx Theme 2. It is published at
 [zhiqwang.github.io/huo](https://zhiqwang.github.io/huo/). The site language,
 page titles, header, navigation, and search interface are English.
 The same deployment includes the
-[interactive browser demo](https://zhiqwang.github.io/huo/demo/).
+[interactive browser demo](demo/index.md), rendered with the same Sphinx theme,
+navigation, and light/dark mode as the documentation.
 
 ## Local preview and strict build
 
-From the repository root, install the documentation dependencies with uv and
-Python 3.12:
+From the repository root, use Node.js 22, npm, uv, and Python 3.12. Build the
+demo modules and install the documentation dependencies before starting Sphinx:
 
 ```bash
+npm --prefix packages ci
+npm --prefix packages run build:docs
 uv sync --locked --only-group docs --python 3.12
-uv run --locked --only-group docs sphinx-autobuild -a --host 0.0.0.0 --port 8000 docs site
+uv run --locked --only-group docs sphinx-autobuild -a --host 0.0.0.0 --port 8000 \
+  --watch packages/demo --watch packages/dist docs site
 ```
 
 Open [http://127.0.0.1:8000/](http://127.0.0.1:8000/) locally, or use the host
 machine's IP address and port 8000 from another device. The preview rebuilds
 when source files change. The `-a` flag also refreshes the output when only CSS
 or templates change, so the browser receives the updated layout.
+The themed demo is at `http://127.0.0.1:8000/demo/`. After TypeScript edits,
+rerun `npm --prefix packages run build:docs`, or keep that command running
+with `-- --watch` in another terminal.
 
 Before publishing, run the same strict build used in CI:
 
 ```bash
+npm --prefix packages run build:docs
 uv run --locked --only-group docs sphinx-build -b html -W --keep-going docs site
 ```
 
@@ -32,22 +40,21 @@ The output is written to `site/`. Both that directory and `.venv/` are ignored
 by Git. Documentation dependencies are defined in the `docs` group in
 `pyproject.toml` and locked in `uv.lock`; run `uv lock` after changing them.
 
-To include the browser demo in a local preview of the complete Pages site,
-run these commands from the repository root after the Sphinx build above
-(Node.js 22 and npm are required):
+The Sphinx output already includes the demo. To serve the complete built site:
 
 ```bash
-npm --prefix packages ci
-npm --prefix packages run build
-cp -R packages/demo packages/src site/
 python -m http.server 8000 --bind 0.0.0.0 --directory site
 ```
 
-Open `http://127.0.0.1:8000/demo/`. The `demo/` and `src/` directories stay
-next to each other so the demo's relative JavaScript imports also work under
-the `/huo/` GitHub Pages prefix. The demo loads jax-js from `esm.sh`; visitors
-need access to that CDN. Rebuild and copy the demo again after changing its
-TypeScript sources.
+`docs/demo/index.md` includes the interactive component from
+`packages/demo/index.html`; Sphinx provides its page layout. The shared CSS in
+`packages/demo/static/demo.css` uses the theme's color variables. The
+`build:docs` script compiles modules into the ignored `packages/dist/`
+directory, and Sphinx copies those modules through `html_extra_path`.
+The `demo/` and `src/` directories stay next to each other so relative imports
+work under the `/huo/` GitHub Pages prefix. Keep the standalone HTML out of
+the build output so it does not overwrite Sphinx's `demo/index.html`.
+The demo loads jax-js from `esm.sh`; visitors need access to that CDN.
 
 ## Adding articles and mathematical notation
 

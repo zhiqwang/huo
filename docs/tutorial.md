@@ -221,7 +221,7 @@ for the full option list.
 (browser-demo-typescript)=
 ## Browser demo
 
-Open the [online demo](https://zhiqwang.github.io/huo/demo/) on GitHub Pages,
+Open the [interactive demo](demo/index.md) in this documentation,
 or build and serve it locally from the repository root:
 
 ```bash
@@ -234,6 +234,8 @@ python -m http.server 8080 --bind 0.0.0.0
 Open `http://localhost:8080/demo/`, or replace `localhost` with the server's
 address from another device. This serves the browser demo; the Sphinx preview
 has its own [instructions](publishing.md#local-preview-and-strict-build).
+Use the Sphinx preview for the complete documentation layout, navigation,
+and light/dark theme controls.
 
 To use the npm static server, run
 `npx serve . --listen tcp://0.0.0.0:3000 --no-clipboard`

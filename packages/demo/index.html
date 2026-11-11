@@ -3,161 +3,68 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>CT Radon Transform &amp; ART Reconstruction — jax-js</title>
-    <style>
-      * {
-        box-sizing: border-box;
-        margin: 0;
-        padding: 0;
-      }
-      body {
-        font-family: system-ui, -apple-system, sans-serif;
-        background: #0f1117;
-        color: #e0e0e0;
-        padding: 24px;
-      }
-      h1 {
-        font-size: 1.6rem;
-        color: #f5f5f5;
-        margin-bottom: 4px;
-      }
-      .subtitle {
-        color: #888;
-        font-size: 0.9rem;
-        margin-bottom: 24px;
-      }
-      .subtitle a {
-        color: #6ea8fe;
-      }
-      .panels {
-        display: flex;
-        gap: 20px;
-        flex-wrap: wrap;
-        margin-bottom: 20px;
-      }
-      .panel {
-        background: #1a1d27;
-        border-radius: 8px;
-        padding: 16px;
-      }
-      .panel h3 {
-        font-size: 0.85rem;
-        color: #aaa;
-        text-transform: uppercase;
-        letter-spacing: 0.05em;
-        margin-bottom: 10px;
-      }
-      canvas {
-        display: block;
-        border-radius: 4px;
-        background: #000;
-      }
-      .controls {
-        display: flex;
-        align-items: center;
-        gap: 16px;
-        flex-wrap: wrap;
-        margin-bottom: 12px;
-      }
-      button {
-        background: #3b82f6;
-        color: #fff;
-        border: none;
-        padding: 10px 24px;
-        border-radius: 6px;
-        font-size: 0.95rem;
-        cursor: pointer;
-        transition: background 0.15s;
-      }
-      button:hover {
-        background: #2563eb;
-      }
-      button:disabled {
-        background: #555;
-        cursor: default;
-      }
-      #status {
-        font-size: 0.9rem;
-        color: #aaa;
-      }
-      progress {
-        width: 200px;
-        height: 8px;
-        appearance: none;
-        border-radius: 4px;
-        overflow: hidden;
-      }
-      progress::-webkit-progress-bar {
-        background: #2a2d37;
-        border-radius: 4px;
-      }
-      progress::-webkit-progress-value {
-        background: #3b82f6;
-        border-radius: 4px;
-      }
-      label {
-        font-size: 0.9rem;
-        color: #aaa;
-      }
-      input[type="range"] {
-        width: 120px;
-        accent-color: #3b82f6;
-      }
-      .delay-value {
-        display: inline-block;
-        min-width: 46px;
-        text-align: right;
-        font-variant-numeric: tabular-nums;
-      }
-    </style>
+    <title>Interactive Browser Demo — Huo</title>
+    <link rel="stylesheet" href="./static/demo.css" />
   </head>
-  <body>
-    <h1>CT Radon Transform &amp; ART Reconstruction</h1>
-    <p class="subtitle">
-      Forward projection (Radon transform) · Back-projection · ART iterative reconstruction
-      · Powered by
-      <a href="https://github.com/ekzhang/jax-js" target="_blank">jax-js</a>
-      · Ported from
-      <a href="https://github.com/zhiqwang/huo" target="_blank">huo</a>
-      · Geometry follows
-      <a href="https://torch-radon.readthedocs.io/en/latest/" target="_blank">torch-radon</a>
-    </p>
-
-    <div class="panels">
-      <div class="panel">
-        <h3>Original Phantom</h3>
-        <canvas id="phantom" width="256" height="256"></canvas>
-      </div>
-      <div class="panel">
-        <h3>Sinogram (rows: angles, columns: detector)</h3>
-        <canvas id="sinogram" width="200" height="180"></canvas>
-      </div>
-      <div class="panel">
-        <h3>Reconstruction (ART)</h3>
-        <canvas id="reconstruction" width="256" height="256"></canvas>
+  <body class="huo-demo-page">
+    <main>
+      <h1>Interactive Browser Demo</h1>
+      <p>
+        Watch a phantom image become a sinogram, then reconstruct it with ART.
+        Select <strong>Start</strong> to run both stages in your browser.
+      </p>
+<!-- demo-content:start -->
+<div class="huo-demo" aria-label="CT forward projection and reconstruction">
+  <div class="huo-demo-controls">
+    <div class="huo-demo-run">
+      <button id="startBtn" type="button" disabled>Start</button>
+      <div class="huo-demo-progress">
+        <progress id="progress" value="0" max="100" aria-label="Reconstruction progress"></progress>
+        <span id="status" role="status">Loading…</span>
       </div>
     </div>
-
-    <div class="controls">
-      <button id="startBtn" disabled>Start</button>
-      <progress id="progress" value="0" max="100"></progress>
-      <span id="status">Loading…</span>
+    <div class="huo-demo-delay">
+      <label for="delaySlider">Frame delay</label>
+      <input id="delaySlider" type="range" min="0" max="200" value="20" step="5" aria-describedby="delayValue" />
+      <output id="delayValue" for="delaySlider">20 ms</output>
     </div>
-    <div class="controls">
-      <label>
-        Frame delay:
-        <input id="delaySlider" type="range" min="0" max="200" value="20" step="5" />
-        <span id="delayValue" class="delay-value">20 ms</span>
-      </label>
-    </div>
+  </div>
+  <div class="huo-demo-panels">
+    <figure class="huo-demo-panel">
+      <figcaption><strong>Original phantom</strong><span>Input image · 128 × 128 pixels</span></figcaption>
+      <div class="huo-demo-canvas">
+        <canvas id="phantom" width="128" height="128" role="img" aria-label="Original phantom image"></canvas>
+      </div>
+    </figure>
+    <figure class="huo-demo-panel">
+      <figcaption><strong>Sinogram</strong><span>Rows: angles · Columns: detector</span></figcaption>
+      <div class="huo-demo-canvas">
+        <canvas id="sinogram" width="200" height="180" role="img" aria-label="Sinogram from forward projection"></canvas>
+      </div>
+    </figure>
+    <figure class="huo-demo-panel">
+      <figcaption><strong>ART reconstruction</strong><span>Image recovered from projections</span></figcaption>
+      <div class="huo-demo-canvas">
+        <canvas id="reconstruction" width="128" height="128" role="img" aria-label="Image reconstructed using ART"></canvas>
+      </div>
+    </figure>
+  </div>
+  <noscript>Enable JavaScript to run the interactive reconstruction.</noscript>
+</div>
 
-    <script type="importmap">
-      {
-        "imports": {
-          "@jax-js/jax": "https://esm.sh/@jax-js/jax@0.1.27"
-        }
-      }
-    </script>
-    <script type="module" src="./main.js"></script>
+<script type="importmap">
+  {
+    "imports": {
+      "@jax-js/jax": "https://esm.sh/@jax-js/jax@0.1.27"
+    }
+  }
+</script>
+<script type="module" src="./main.js"></script>
+<!-- demo-content:end -->
+      <p>
+        <a href="https://zhiqwang.github.io/huo/demo/">Open the demo in the Huo documentation</a>
+        · Powered by <a href="https://github.com/ekzhang/jax-js">jax-js</a>
+      </p>
+    </main>
   </body>
 </html>

@@ -45,8 +45,10 @@ fontawesome_assets = next(
         "theme/pydata_sphinx_theme/static/vendor/fontawesome/*/webfonts"
     )
 ).parent
-html_static_path = ["_static", str(fontawesome_assets)]
-html_css_files = ["custom.css"]
+html_static_path = ["_static", str(fontawesome_assets), "../packages/demo/static"]
+html_css_files = ["custom.css", "demo.css"]
+# Only compiled modules go into dist; Sphinx owns demo/index.html.
+html_extra_path = ["../packages/dist"]
 html_js_files = [
     ("js/jquery.min.js", {"defer": "defer"}),
     ("js/theme.js", {"defer": "defer"}),

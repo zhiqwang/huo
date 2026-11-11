@@ -47,6 +47,8 @@ python -m http.server 8080 --bind 0.0.0.0
 
 Open `http://localhost:8080/demo/`, or use the server's address from another
 machine. jax-js loads through the demo's CDN import map.
+For the demo with the documentation theme and navigation, follow the
+[Sphinx preview instructions](docs/publishing.md#local-preview-and-strict-build).
 
 To use the npm static server, run
 `npx serve . --listen tcp://0.0.0.0:3000 --no-clipboard`

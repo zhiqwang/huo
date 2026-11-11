@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "build": "tsc",
+    "build:docs": "tsc --outDir dist --sourceMap false --declaration false --declarationMap false",
     "typecheck": "tsc --noEmit",
     "test": "npm run build && node --test tests/*.test.mjs",
     "dev": "tsc && npx serve ."
