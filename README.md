@@ -1,33 +1,22 @@
 # Huo
 
-Fan-beam CT forward projection and ART-inspired residual reconstruction with
-Python / PyTorch and TypeScript / jax-js implementations.
+Differentiable fan-beam CT projection and image reconstruction with PyTorch.
+Huo maps an image to predicted line integrals; a loss compares them with fixed
+measurements, and a PyTorch optimizer updates the image or a neural network.
 
-Both implementations use **the same geometry fields, radians, pixel units,
-and `[angle, detector]` sinograms**. The public names and scanner orientation
-follow [torch-radon](https://github.com/matteo-ronchetti/torch-radon).
-See [Geometry](docs/geometry.md) for the common notation and diagrams, and the
-[Tutorial](docs/tutorial.md) for runnable examples.
+```text
+image → FanbeamProjector → predicted sinogram → loss against measured sinogram
+  ↑                                              │
+  └──────── optimizer.step() ← loss.backward() ───┘
+```
 
-## Iterative update
-
-A reconstruction starts from zero and visits each angle once in random order:
-
-1. Forward-project the current image to predict one detector row.
-2. Subtract that row from the measured sinogram row.
-3. Divide by the ray-window length, `resolution` in pixel units.
-4. Backproject the residual and clamp negative image values to zero.
-
-The implementation uses uniform residual backfill. Its equivalence to a
-Kaczmarz projection and its convergence require additional assumptions. The
-[mathematical analysis](docs/backward_propagation_proof.md) separates these
-claims and includes executable Lean proofs.
+The public Python API contains `FanbeamGeometry`, `FanbeamProjector`, and
+`reconstruct`. The projector is an `nn.Module` with fixed scanner buffers.
+Its autograd implementation handles the discrete transpose internally.
 
 ## Installation
 
-Huo requires Python 3.11 or newer and includes PyTorch `2.15.0+cpu` as a
-dependency. Use uv to install the locked environment from the configured
-PyTorch CPU index:
+Python 3.11 or newer is required. Install the locked CPU environment with uv:
 
 ```bash
 git clone https://github.com/zhiqwang/huo.git
@@ -36,136 +25,112 @@ uv sync --locked --python 3.12
 source .venv/bin/activate
 ```
 
-Open the [online browser demo](https://zhiqwang.github.io/huo/demo/) to run forward
-projection and ART reconstruction in your browser, or build it locally:
+The project pins PyTorch `2.15.0+cpu`. Images and measurements use CPU float32
+or float64 and must match the projector's dtype. Angles are radians and all
+scanner distances are in pixels.
 
-```bash
-cd packages
-npm ci
-npm run build
-python -m http.server 8080 --bind 0.0.0.0
-```
-
-Open `http://localhost:8080/demo/`, or use the server's address from another
-machine. jax-js loads through the demo's CDN import map.
-For the demo with the documentation theme and navigation, follow the
-[Sphinx preview instructions](docs/publishing.md#local-preview-and-strict-build).
-
-To use the npm static server, run
-`npx serve . --listen tcp://0.0.0.0:3000 --no-clipboard`
-and open `http://localhost:3000/demo/`.
-
-## Python example
+## Optimize an image
 
 ```python
 import math
 import torch
-from huo import RadonFanbeam
+from huo import FanbeamGeometry, FanbeamProjector
 
-radon = RadonFanbeam(
-    resolution=64,
-    angles=torch.arange(24, dtype=torch.float32) * (math.pi / 12),
-    source_distance=436,
-    det_distance=97.33333333333333,
-    det_count=80,
-    det_spacing=1,
-    ray_sampling=2,
+geometry = FanbeamGeometry(
+    resolution=32,
+    source_distance=128,
+    det_distance=64,
+    det_count=40,
+    det_spacing=1.3,
 )
-image = torch.zeros(64, 64, dtype=torch.float32)
-image[20:44, 24:40] = 1
-sinogram = radon.forward(image)           # [24, 80]: angle, detector
-backprojected = radon.backprojection(sinogram)
-reconstructed = radon.art(sinogram)       # [64, 64]
+projector = FanbeamProjector(geometry, torch.arange(24) * (math.pi / 12))
+
+# Synthetic measurements; replace these with calibrated line-integral data.
+phantom = torch.zeros(32, 32)
+phantom[10:22, 12:20] = 1
+measured = projector(phantom).detach()
+
+image = torch.nn.Parameter(torch.zeros_like(phantom))
+optimizer = torch.optim.Adam([image], lr=0.03)
+for _ in range(200):
+    optimizer.zero_grad(set_to_none=True)
+    predicted = projector(image)
+    loss = 0.5 * (predicted - measured).square().mean()
+    loss.backward()
+    optimizer.step()
+    with torch.no_grad():
+        image.clamp_min_(0)
+
+reconstructed = image.detach()
 ```
 
-Use CPU `float32` tensors. Geometry is immutable and cached in `radon.geometry`.
-The TypeScript class accepts an object with these exact field names; its
-methods return promises of jax-js arrays.
+The same loop is available as a convenience function:
+
+```python
+from huo import reconstruct
+reconstructed = reconstruct(projector, measured, steps=200, lr=0.03)
+```
+
+`reconstruct` returns a detached image. Use the projector directly to choose
+another optimizer, add regularization, or train a network. Native batch shapes
+`[..., N, N] → [..., V, M]`, `torch.func` transforms, higher-order input
+derivatives, module dtype conversion, and `state_dict` are supported.
 
 ## Command line
 
 ```bash
-huo-art sinogram.npy --angles angles.npy \
-  --resolution 64 --source-distance 436 --det-distance 97.33333333333333 \
-  --det-count 80 --det-spacing 1 --ray-sampling 2 --output reconstruction.npy
+huo-reconstruct measured.npy --angles angles.npy \
+  --resolution 32 --source-distance 128 --det-distance 64 --det-spacing 1.3 \
+  --steps 200 --lr 0.03 --output reconstruction.npy
 ```
 
-`sinogram.npy` must have shape `[V, M]`. `angles.npy` is a one-dimensional
-radian array in row order. Alternatively, `--angle-step` generates uniform
-angles in `[0, 2π)`; its default is `π/180`. The two angle options are mutually
-exclusive. The CLI casts NumPy values to `float32` and runs one sweep.
+The detector count comes from the last measurement dimension. The angle file
+must match the preceding dimension. Nonnegative image updates are enabled by
+default; `--allow-negative` disables the constraint.
 
-This is an API migration. Earlier Huo data needs angle, axis, detector-order,
-and length-unit conversion; follow [Migrating earlier data](docs/geometry.md#migrating-earlier-huo-data).
+## Documentation and browser example
 
-## Shared API
+- [Tutorial](docs/tutorial.md): complete PyTorch loops, batches, networks, and CLI.
+- [API](docs/api.md): geometry, module state, dtype, and optimizer contracts.
+- [Autograd reconstruction](docs/autograd.md): the loss and its discrete gradient.
+- [Geometry](docs/geometry.md): scanner coordinates and sampling weights.
+- [Browser demo](https://zhiqwang.github.io/huo/demo/): a separate TypeScript ART
+  example. It shares forward geometry with Python and uses its own residual
+  backfill reconstruction algorithm.
 
-Both languages expose `RadonFanbeam` with these methods:
+The browser example and its [proof article](docs/backward_propagation_proof.md)
+illustrate ART-style updates; Python reconstruction uses loss minimization.
 
-| Method | Input → output |
-| --- | --- |
-| `forward(image)` | `[N, N]` → `[V, M]` |
-| `backprojection(sinogram)` | `[V, M]` → `[N, N]`, summed over angles |
-| `art(sinogram)` | `[V, M]` → `[N, N]`, one clipped residual sweep |
-| `forward_angle(image, angle)` | `[N, N]` → `[M]` |
-| `backprojection_angle(projection, angle)` | `[M]` → `[N, N]` |
+## Checks
 
-Python also exposes `adjoint(sinogram)` and `adjoint_angle(projection, angle)`
-for the discrete transpose of forward projection. Uniform `backprojection`
-has its own transpose. These linear Python operators support input gradients,
-higher-order derivatives, and `torch.func` transforms, including `vmap`.
+```bash
+uv sync --locked --group test
+npm --prefix packages ci
+npm --prefix packages test
+uv run --locked --group test pytest tests -q
+uv run --locked python -m benchmarks.autograd
+```
 
-| Field | Meaning |
-| --- | --- |
-| `resolution` | $N$: image pixels per axis |
-| `angles` | $V$ angles in radians, in sinogram row order |
-| `source_distance` | $d_s$: source to image centre, in pixels |
-| `det_distance` | $d_d$: image centre to detector plane, in pixels |
-| `det_count` | $M$: detector elements |
-| `det_spacing` | $\Delta u$: detector spacing, in pixels |
-| `ray_sampling` | $q_{\rm ray}$: integration intervals per pixel; defaults to 2 |
-
-`FanbeamGeometry` derives `source_detector_distance`, `pixel_extent`,
-`det_extent`, `ray_sample_count`, and `ray_step`. At angle zero the source is
-`(0, source_distance)` and the detector plane is `y = -det_distance`.
+Tests cover gradients, higher derivatives, batches, optimizer behavior, module
+state, and Python/TypeScript forward-projection parity. See
+[documentation publishing](docs/publishing.md) for Sphinx builds and Lean checks.
 
 ## Repository structure
 
 ```text
 huo/
-  geometry.py                 Shared Python geometry
-  art.py                      Per-angle operators
-  radon.py                    RadonFanbeam
-  cli.py                      CLI and NumPy I/O
-packages/
-  src/geometry.ts             Same geometry fields and coordinate rules
-  src/art.ts                  TypeScript RadonFanbeam
-  demo/                       Interactive browser demo
-  tests/                      TypeScript regressions
-tests/                        Python regressions and shared fixtures
+  geometry.py                 Immutable scanner geometry and ray coordinates
+  projector.py                FanbeamProjector(nn.Module)
+  _autograd.py                Private projection/transpose autograd pair
+  _validation.py              Tensor checks compatible with torch.func
+  reconstruction.py           Adam image optimization
+  cli.py                      NumPy input/output
+packages/                     TypeScript ART browser example
+tests/                        Python regressions and shared geometry fixtures
+benchmarks/                   CPU timing and retained autograd storage
 docs/                         English Sphinx documentation
-lean/Huo/BackwardPropagation.lean  Formal algebra and convergence lemmas
+lean/                         Formal results for residual backprojection
 ```
-
-## Checks
-
-With PyTorch, pytest, and the JavaScript dependencies installed:
-
-```bash
-npm --prefix packages test
-python -m pytest tests
-```
-
-The Python suite also compares the built TypeScript operators on shared signed
-inputs when Node and the JavaScript dependencies are available.
-
-For documentation previews and Lean verification, see
-[Maintaining and Publishing Documentation](docs/publishing.md).
-
-## Contributing
-
-Issues and pull requests are welcome. Keep geometry notation and conventions
-consistent across Python, TypeScript, documentation, diagrams, and proofs.
 
 ## License
 

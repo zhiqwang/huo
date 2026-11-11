@@ -70,8 +70,9 @@ uv run --locked --group test pytest tests -q
 ```
 
 Run `npm --prefix packages ci` and `npm --prefix packages test` to build and
-test the TypeScript operators before pytest; this enables the Python/TypeScript
-parity checks. CI runs both suites on Python 3.11 and 3.12.
+test the TypeScript operators before pytest; this enables Python/TypeScript
+forward-projection parity checks. Reconstruction algorithms differ. CI runs
+both suites on Python 3.11 and 3.12.
 
 For CPU timing and retained autograd storage, run
 `uv run --locked python -m benchmarks.autograd`. The benchmark reports the
@@ -80,7 +81,10 @@ storage checks run in CI; timings are for local comparison.
 
 ### Documentation
 
-TBD
+The Python API is a forward projector plus a PyTorch loss/optimizer loop.
+Keep the tutorial, API reference, CLI examples, and autograd derivation aligned
+with that interface. The TypeScript ART example and its proofs are documented
+separately. Follow `docs/publishing.md` for a strict Sphinx build.
 
 ### Pull Request Recommendations
 

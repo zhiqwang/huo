@@ -5,7 +5,7 @@ build-backend = "hatchling.build"
 [project]
 name = "huo"
 version = "0.1.0a0"
-description = "CT Algebraic Reconstruction Technique (ART) with PyTorch"
+description = "Differentiable fan-beam CT projection and loss-based reconstruction with PyTorch"
 readme = "README.md"
 license = "GPL-3.0-only"
 requires-python = ">=3.11"
@@ -54,7 +54,7 @@ url = "https://download.pytorch.org/whl/cpu"
 explicit = true
 
 [project.scripts]
-huo-art = "huo.cli:main"
+huo-reconstruct = "huo.cli:main"
 
 [project.urls]
 Homepage = "https://github.com/zhiqwang/huo"

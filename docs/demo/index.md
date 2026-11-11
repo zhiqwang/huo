@@ -3,6 +3,10 @@
 Watch a phantom image become a sinogram, then reconstruct it with the
 Algebraic Reconstruction Technique (ART). The computation runs in your browser.
 
+This TypeScript example uses uniform residual backfill. The Python package
+uses [loss-based optimization](../autograd.md); the two implementations share
+forward geometry and use different reconstruction updates.
+
 ## Run the demo
 
 Select **Start** to run forward projection and ART. Use **Frame delay** to

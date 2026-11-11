@@ -3,20 +3,24 @@
 tocdepth: 2
 ---
 
-# Why Residual Backprojection Can Reconstruct an Image
+# Browser ART: Residual Backprojection and Its Limits
 
 Residual backprojection can correct projection errors, but it is not an inverse
-of forward projection. This article reviews the operators in
-[huo/art.py](https://github.com/zhiqwang/huo/blob/main/huo/art.py) and
-[huo/radon.py](https://github.com/zhiqwang/huo/blob/main/huo/radon.py), derives
+of forward projection. This article reviews the browser operators in
+[packages/src/art.ts](https://github.com/zhiqwang/huo/blob/main/packages/src/art.ts), derives
 conditions under which their *idealized iterations* converge, and identifies
 what those conditions do and do not establish about the current implementation.
 
 The main distinctions are between a continuous ray model and sampled matrices,
 between one ray and a whole angle, and between a small projection residual and
-recovery of a particular image. The current Python implementation performs one
+recovery of a particular image. The browser implementation performs one
 randomly ordered sweep from zero. None of the convergence theorems below
 certifies exact reconstruction by that single sweep.
+
+The Python package uses a forward-only `FanbeamProjector` and a loss/optimizer
+loop. Its backward applies the sampled transpose automatically. See
+[Autograd Reconstruction](autograd.md) for that objective and gradient; the
+iteration analyzed here is the separate browser residual-backfill algorithm.
 
 All mathematical statements use real arithmetic. Discretization error,
 measurement noise, and floating-point error are separate issues. Selected
@@ -55,7 +59,7 @@ floating-point evaluations.
 | $r_\theta=b_\theta-A_\theta x$ | Residual before normalization | `sinogram[j, :] - predicted` |
 | $B_\theta r_\theta$ | Backprojected residual | `backprojection_angle(...)` |
 | $L=N$ | Ray-window length used for normalization | `geometry.resolution` |
-| $P_+z$ | Componentwise $\max(z_j,0)$ | `image.clamp(min=0)` |
+| $P_+z$ | Componentwise $\max(z_j,0)$ | `Math.max(0, value)` |
 
 Each angle update is therefore
 
@@ -120,7 +124,7 @@ $$
 =\frac{u_\theta(p)}{\Delta u}+\frac{M-1}{2}.
 $$
 
-Both implementations use the right-hand expression to interpolate the 1-D
+The browser implementation uses the right-hand expression to interpolate the 1-D
 detector row directly. This verifies the perspective formula on the shared
 grid, not an adjoint identity.
 
@@ -353,7 +357,7 @@ one at **every sampled point** would yield
 $(K+1)\Delta t=L+\Delta t$, not $L$. Actual samples may taper or vanish
 because of zero padding, and the distance window may omit part of the
 image support. In particular, a square image can have chords longer than
-$L$; a circular support mask is not enforced by these Python functions.
+$L$; a circular support mask is not enforced by the browser operators.
 Thus neither a full chord length nor $L$ automatically equals the actual
 row sum
 
@@ -469,7 +473,7 @@ $$
 Here $A^\dagger b$ is the minimum Euclidean norm solution and $P_{\ker A}$
 is orthogonal projection. Starting at zero selects that minimum-norm solution,
 which need not be the original image. Equation (21) concerns the fixed,
-matched, unclipped iteration, not Huo's current angle updates. For general
+matched, unclipped iteration, not the browser's angle updates. For general
 $B$, the updates remain in the affine space $x^0+\operatorname{range}(B)$;
 restricted stability and solution selection require their own hypotheses.
 
@@ -668,7 +672,7 @@ and $\|D_k\|_2\leq1$, so intermediate errors also tend to zero. $\square$
 
 This is a conservative sufficient condition, not a necessary one. In
 particular, it includes $D_i=I$ and is impossible on the full space if the
-angles have a common nontrivial nullspace. The current default dimensions
+angles have a common nontrivial nullspace. The example acquisition dimensions
 have that obstruction. Lean checks the scalar secant identity
 `clamp_secant`, its coordinatewise extension `clipped_error_representation`,
 and the generic norm-contraction bound and limit; the universal
@@ -724,7 +728,7 @@ example, not a numerical experiment with the repository's CT geometry.
 
 ### Shared grids do not make the operators adjoints
 
-Both implementations set $a_x=(N-1)/2$ and use the same pixel centres:
+Python and browser forward projection set $a_x=(N-1)/2$ and use the same pixel centres:
 
 $$
 x_c=a_x\left(-1+\frac{2c}{N-1}\right)=c-\frac{N-1}{2}.
@@ -732,7 +736,7 @@ x_c=a_x\left(-1+\frac{2c}{N-1}\right)=c-\frac{N-1}{2}.
 $$
 
 Rows use the same formula. Python's forward image sampler selects
-`align_corners=True` in `grid_sample`. Backprojection scales the 1-D pixel
+`align_corners=True` in `grid_sample`. Browser backprojection scales the 1-D pixel
 centres by the rotation coefficients, broadcasts them into a rotated grid
 in pixel units, and interpolates the 1-D detector row at
 $u/\Delta u+(M-1)/2$. TypeScript uses the same
@@ -745,35 +749,30 @@ contract is described in
 and
 [packages/tests/geometry.test.mjs](https://github.com/zhiqwang/huo/blob/main/packages/tests/geometry.test.mjs)
 check ray incidence, detector ramps, quarter-turn direction, odd/even sizes,
-and shared boundary examples. The migration test also checks how previous
+and shared boundary examples. The physical-unit test also checks how
 physical-coordinate data converts to the current convention. These tests
 establish sampled cases, not $B_\theta=A_\theta^T$ or convergence; the weights
 in (13) and (14) remain different.
 
-The Python autograd wrappers differentiate these two maps separately:
-`RadonForward.backward` applies $A_\theta^T$, while
-`RadonBackprojection.backward` applies $B_\theta^T$. Each transpose is itself
-wrapped in an autograd Function whose backward applies the original operator.
-The Python `adjoint_angle` and `adjoint` methods expose $A_\theta^T$ and $A^T$.
-All these maps use their own forward interpolation weights, including the
-ray-step scale in $A_\theta$ and partial zero-padding weights. The checks in
-`tests/test_autograd.py` compare gradients with explicit sampled matrices and
-finite differences, including second derivatives, transform compositions, and
-multi-angle Hessian-vector products. These gradient identities do not identify
-the uniform backfill $B_\theta$ with $A_\theta^T$.
+The Python module exposes only forward projection. Its private autograd pair
+applies $A^T$ during backward and $A$ when differentiating that transpose.
+`tests/test_autograd.py` checks explicit sampled matrices, finite differences,
+higher derivatives, and transform compositions. The Python reconstruction
+helper minimizes projection loss with Adam. Those identities do not identify
+the browser's uniform backfill $B_\theta$ with $A_\theta^T$.
 
 ### Each call starts from zero and performs one sweep
 
-Both `RadonFanbeam.art` implementations allocate a zero image, visit every
-angle once in a random permutation, and return. Python uses `torch.randperm`;
-TypeScript uses Fisher–Yates. The CLI calls `art` once. Repeating the call
+The TypeScript `RadonFanbeam.art` allocates a zero image, visits every angle
+once in a Fisher–Yates random permutation, and returns. Repeating the call
 starts from zero again. Repeated-sweep theorems describe an extension that
-would preserve the iterate between sweeps.
+would preserve the iterate between sweeps. The Python CLI instead runs a
+configured number of Adam steps on a fixed measurement loss.
 
-### The default system cannot identify every pixel image
+### An underdetermined acquisition cannot identify every pixel image
 
-The [CLI defaults](https://github.com/zhiqwang/huo/blob/main/huo/cli.py) use
-$512\times512$ images, $500$ detectors, and $360$ angles. The stacked matrix is
+For example, an acquisition with $512\times512$ images, $500$ detectors,
+and $360$ angles has a stacked matrix
 
 $$
 \mathbf A\in\mathbb R^{180000\times262144},\qquad
@@ -792,7 +791,7 @@ additional support or structural assumptions.
 ### Positivity does not establish an adjoint identity
 
 Nonnegative interpolation weights preserve nonnegative data. The positivity
-checks in `tests/test_art.py` cover that property; they do not verify
+checks in `tests/test_projector.py` cover that property for $A$; they do not verify
 
 $$
 \langle A_\theta x,y\rangle=\langle x,B_\theta y\rangle.
