@@ -1,4 +1,4 @@
-"""Tensor validation that composes with torch.func transforms."""
+"""PyTorch tensor validation that composes with torch.func transforms."""
 
 import torch
 from torch import Tensor

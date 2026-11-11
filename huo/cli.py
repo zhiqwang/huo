@@ -5,11 +5,8 @@
 import argparse
 
 import numpy as np
-import torch
 
 from huo.geometry import FanbeamGeometry
-from huo.projector import FanbeamProjector
-from huo.reconstruction import reconstruct
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -17,6 +14,10 @@ def build_parser() -> argparse.ArgumentParser:
         prog="huo-reconstruct", description="Optimize a fan-beam image against measured line integrals"
     )
     parser.add_argument("sinogram", help="NumPy measurements with shape [..., angle, detector]")
+    parser.add_argument(
+        "--backend", choices=("torch", "jax"), default="torch", help="array backend (default: torch)"
+    )
+    parser.add_argument("--method", choices=("scan", "vmap"), help="JAX angle traversal (default: scan)")
     parser.add_argument(
         "--angles", required=True, help="NumPy 1-D angles in radians, in measurement row order"
     )
@@ -38,13 +39,45 @@ def build_parser() -> argparse.ArgumentParser:
     return parser
 
 
+def _torch_reconstruct(geometry, angles, values, args):
+    from huo.torch import FanbeamProjector, reconstruct
+    import torch
+
+    projector = FanbeamProjector(geometry, angles)
+    measured = torch.from_numpy(values)
+    image = reconstruct(
+        projector, measured, steps=args.steps, lr=args.lr, nonnegative=not args.allow_negative
+    )
+    with torch.no_grad():
+        loss = 0.5 * (projector(image) - measured).square().mean()
+    return image.numpy(), float(loss)
+
+
+def _jax_reconstruct(geometry, angles, values, args):
+    from huo.jax import FanbeamProjector, reconstruct
+    import jax
+    import jax.numpy as jnp
+
+    projector = FanbeamProjector.create(geometry, angles, method=args.method or "scan")
+    measured = jnp.asarray(values)
+    image = reconstruct(
+        projector, measured, steps=args.steps, lr=args.lr, nonnegative=not args.allow_negative
+    )
+    loss = 0.5 * jnp.mean((projector(image) - measured) ** 2)
+    return np.asarray(jax.device_get(image)), float(loss)
+
+
 def main(argv=None):
     parser = build_parser()
     args = parser.parse_args(argv)
+    if args.method is not None and args.backend != "jax":
+        parser.error("--method requires --backend jax")
     try:
         values = np.asarray(np.load(args.sinogram), dtype=np.float32)
         if values.ndim < 2:
             raise ValueError("sinogram must have shape [..., angle, detector]")
+        if values.size == 0 or not np.isfinite(values).all():
+            raise ValueError("sinogram must be nonempty and contain only finite values")
         geometry = FanbeamGeometry(
             args.resolution,
             args.source_distance,
@@ -53,20 +86,16 @@ def main(argv=None):
             args.det_spacing,
             args.ray_sampling,
         )
-        projector = FanbeamProjector(geometry, np.load(args.angles))
-        measured = torch.from_numpy(values)
-        image = reconstruct(
-            projector, measured, steps=args.steps, lr=args.lr, nonnegative=not args.allow_negative
-        )
-        with torch.no_grad():
-            initial_loss = 0.5 * measured.square().mean()
-            final_loss = 0.5 * (projector(image) - measured).square().mean()
-        np.save(args.output, image.numpy())
-    except (OSError, ValueError, TypeError) as error:
+        runner = _torch_reconstruct if args.backend == "torch" else _jax_reconstruct
+        image, final_loss = runner(geometry, np.load(args.angles), values, args)
+        initial_loss = float(0.5 * np.mean(values.astype(np.float64) ** 2))
+        np.save(args.output, image)
+    except (OSError, ValueError, TypeError, ModuleNotFoundError) as error:
         parser.error(str(error))
-    print(f"measurements: {tuple(measured.shape)} [..., angle, detector]")
+    print(f"backend: {args.backend}")
+    print(f"measurements: {tuple(values.shape)} [..., angle, detector]")
     print(f"image: {tuple(image.shape)}; steps: {args.steps}")
-    print(f"loss: {initial_loss.item():.6g} -> {final_loss.item():.6g}")
+    print(f"loss: {initial_loss:.6g} -> {final_loss:.6g}")
     print(f"saved: {args.output}")
 
 

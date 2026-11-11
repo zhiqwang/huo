@@ -93,8 +93,10 @@ The implementation names the extents `pixel_extent` and `det_extent`.
 [Open the diagram](_static/figures/sampling-centres.svg).
 
 `FanbeamGeometry` owns these derived quantities. Python's `FanbeamProjector`
-and the browser's `RadonFanbeam` cache zero-angle ray coordinates. Python uses
-`grid_sample(..., align_corners=True)`; TypeScript uses the same mapping from
+implementations and the browser's `RadonFanbeam` cache zero-angle ray coordinates.
+PyTorch uses `grid_sample(..., align_corners=True)`; JAX uses linear
+`map_coordinates` with partial zero padding and pixel-index coordinates.
+TypeScript uses the same mapping from
 $\pm a_x$ to $\pm1$. The browser backfill interpolates detector rows at
 $u/\Delta u+(M-1)/2$. Python instead differentiates its actual image sampling
 weights to propagate projection-loss gradients.
@@ -110,8 +112,10 @@ y(t,u)&=d_s-\frac{tD}{\sqrt{u^2+D^2}}.
 $$
 
 `compute_ray_coordinates` returns `ray_x` and `ray_y` normalized by
-`pixel_extent`, with shape `[ray_sample_count, det_count]`. Python forms these
-coordinates with outer products of ray distances and detector directions.
+`pixel_extent`, with shape `[ray_sample_count, det_count]`. The shared NumPy
+implementation forms these coordinates in float64 with outer products, then
+converts to the requested float32/float64 dtype. Each backend prepares its own
+arrays from those coordinates outside differentiation.
 The code rotates these positions by $R_{-\theta}$ and sums interpolated values with weight
 `ray_step`. Both endpoints receive the full weight. The window is not a
 ray intersection with the full square, and can omit support near corners.
@@ -126,7 +130,8 @@ The Python autograd path uses the sampled transpose internally.
 ## Parameters
 
 Python constructs `FanbeamGeometry` explicitly, then passes it and the angles
-to `FanbeamProjector`. The TypeScript browser example uses the same geometry
+to `huo.torch.FanbeamProjector(...)` or `huo.jax.FanbeamProjector.create(...)`.
+The TypeScript browser example uses the same geometry
 fields in its own `RadonFanbeam` constructor. Reconstruction APIs differ.
 
 `resolution` and `det_count` must be integers at least two, `ray_sampling`

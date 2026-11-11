@@ -31,13 +31,14 @@ We use GitHub issues to track public bugs. Please ensure your description is cle
 
 ### Install huo
 
-Use Python 3.11 or newer and uv. The project declares PyTorch `2.15.0+cpu`
-and configures its CPU package index:
+Use Python 3.11 or newer and uv. Install both optional backends for development;
+the base package depends only on NumPy. The `torch` extra uses the configured
+PyTorch CPU index, and the `jax` extra supplies JAX and Optax:
 
 ```bash
 git clone https://github.com/zhiqwang/huo.git
 cd huo
-uv sync --locked --group test --python 3.12
+uv sync --locked --all-extras --group test --python 3.12
 source .venv/bin/activate
 ```
 
@@ -60,28 +61,37 @@ Contributions should be compatible with the supported Python versions and follow
 If you have modified the code by adding a new feature or a bug-fix, please add unit tests for that. To run a specific test:
 
 ```bash
-uv run --locked --group test pytest tests/test_autograd.py -q
+uv run --locked --extra torch --group test pytest tests/test_autograd.py -q
 ```
 
 If you would like to run all tests:
 
 ```bash
-uv run --locked --group test pytest tests -q
+uv run --locked --all-extras --group test pytest tests -q
 ```
 
 Run `npm --prefix packages ci` and `npm --prefix packages test` to build and
 test the TypeScript operators before pytest; this enables Python/TypeScript
 forward-projection parity checks. Reconstruction algorithms differ. CI runs
-both suites on Python 3.11 and 3.12.
+both suites on Python 3.11 and 3.12. It also installs non-editable base-only,
+Torch-only, and JAX-only packages and runs `tools/check_installation.py` with
+the installed environment's `python -I` to check dependency isolation and CLI
+behavior. Backend tests skip when their optional dependencies are absent.
 
 For CPU timing and retained autograd storage, run
-`uv run --locked python -m benchmarks.autograd`. The benchmark reports the
+`uv run --locked --extra torch python -m benchmarks.autograd`. The benchmark reports the
 scanner dimensions and thread count with its results. Numerical and retained
 storage checks run in CI; timings are for local comparison.
 
+Run the public JAX contracts and the cross-backend numerical checks with
+`uv run --locked --all-extras --group test pytest tests/test_jax.py tests/test_jax_reference.py -q`.
+See `docs/jax_benchmark.md` for isolated CPU comparisons and the recorded
+measurements. Do not run competing benchmarks concurrently on the selected CPU.
+
 ### Documentation
 
-The Python API is a forward projector plus a PyTorch loss/optimizer loop.
+The Python API is shared NumPy geometry plus explicit `huo.torch` and `huo.jax`
+backends, each exposing a forward projector and loss/optimizer workflow.
 Keep the tutorial, API reference, CLI examples, and autograd derivation aligned
 with that interface. The TypeScript ART example and its proofs are documented
 separately. Follow `docs/publishing.md` for a strict Sphinx build.

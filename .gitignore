@@ -109,7 +109,7 @@ build
 # Generated documentation
 _site
 site/
-.venv/
+.venv*/
 doxygen
 
 # Lean dependencies and compiled proofs

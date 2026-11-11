@@ -754,11 +754,13 @@ physical-coordinate data converts to the current convention. These tests
 establish sampled cases, not $B_\theta=A_\theta^T$ or convergence; the weights
 in (13) and (14) remain different.
 
-The Python module exposes only forward projection. Its private autograd pair
-applies $A^T$ during backward and $A$ when differentiating that transpose.
+The Python backends expose only forward projection. PyTorch's private autograd
+pair applies $A^T$ during backward and $A$ when differentiating that transpose.
 `tests/test_autograd.py` checks explicit sampled matrices, finite differences,
-higher derivatives, and transform compositions. The Python reconstruction
-helper minimizes projection loss with Adam. Those identities do not identify
+higher derivatives, and transform compositions. JAX derives these operations
+from its native sampler without a custom derivative; `tests/test_jax_reference.py`
+checks numerical agreement with PyTorch. Both reconstruction helpers minimize
+projection loss with Adam. Those identities do not identify
 the browser's uniform backfill $B_\theta$ with $A_\theta^T$.
 
 ### Each call starts from zero and performs one sweep

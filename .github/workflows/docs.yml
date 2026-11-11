@@ -5,6 +5,7 @@ on:
     branches: [main]
     paths:
       - "docs/**"
+      - "benchmarks/results/**"
       - "packages/**"
       - "lean/**"
       - "pyproject.toml"
@@ -14,6 +15,7 @@ on:
     branches: [main]
     paths:
       - "docs/**"
+      - "benchmarks/results/**"
       - "packages/**"
       - "lean/**"
       - "pyproject.toml"

@@ -32,11 +32,39 @@ jobs:
           cache: npm
           cache-dependency-path: packages/package-lock.json
       - name: Install Python test dependencies
-        run: uv sync --locked --group test
+        run: uv sync --locked --all-extras --group test
       - name: Build and test TypeScript operators
         working-directory: packages
         run: |
           npm ci
           npm test
       - name: Check operators, transforms, and cross-language parity
-        run: uv run --locked --group test pytest tests -q
+        env:
+          JAX_PLATFORMS: cpu
+        run: uv run --locked --all-extras --group test pytest tests -q
+
+  isolated-install:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        backend: [base, torch, jax]
+    env:
+      OMP_NUM_THREADS: "1"
+      MKL_NUM_THREADS: "1"
+      JAX_PLATFORMS: cpu
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+      - uses: astral-sh/setup-uv@v7
+      - name: Install one backend as a wheel
+        run: |
+          if [ "${{ matrix.backend }}" = base ]; then
+            uv sync --locked --no-editable
+          else
+            uv sync --locked --no-editable --extra "${{ matrix.backend }}"
+          fi
+      - name: Check installed package and CLI without the other backend
+        run: .venv/bin/python -I tools/check_installation.py --backend "${{ matrix.backend }}"

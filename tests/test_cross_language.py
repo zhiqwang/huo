@@ -12,9 +12,11 @@ import shutil
 import subprocess
 
 import pytest
-import torch
 
-from huo import FanbeamGeometry, FanbeamProjector
+torch = pytest.importorskip("torch")
+
+from huo import FanbeamGeometry
+from huo.torch import FanbeamProjector
 
 ROOT = Path(__file__).resolve().parents[1]
 READY = (

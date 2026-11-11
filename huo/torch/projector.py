@@ -2,11 +2,12 @@
 
 from dataclasses import asdict
 
+import numpy as np
 import torch
 from torch import Tensor, nn
 
-from huo._autograd import project
-from huo._validation import check_tensor
+from huo.torch._autograd import project
+from huo.torch._validation import check_tensor
 from huo.geometry import FanbeamGeometry, compute_ray_coordinates
 
 
@@ -36,7 +37,10 @@ class FanbeamProjector(nn.Module):
             values = torch.as_tensor(angles, dtype=dtype, device="cpu").detach().clone()
             if values.ndim != 1 or values.numel() == 0 or not torch.isfinite(values).all():
                 raise ValueError("angles must be a nonempty finite 1-D sequence in radians")
-            ray_x, ray_y = compute_ray_coordinates(geometry, dtype=dtype)
+            coordinates = compute_ray_coordinates(
+                geometry, dtype=np.float64 if dtype == torch.float64 else np.float32
+            )
+            ray_x, ray_y = (torch.from_numpy(value) for value in coordinates)
         self.register_buffer("angles", values)
         self.register_buffer("_ray_x", ray_x)
         self.register_buffer("_ray_y", ray_y)

@@ -1,8 +1,8 @@
 # Autograd Reconstruction
 
-Huo's Python reconstruction minimizes a scalar loss using PyTorch. The image
+Huo's Python reconstruction minimizes a scalar loss using PyTorch or JAX. The image
 or neural-network weights are optimization variables; acquisition geometry is
-fixed. The [tutorial](tutorial.md) contains runnable loops.
+fixed. The [PyTorch tutorial](tutorial.md) and [JAX guide](jax.md) contain runnable loops.
 
 ## The sampled forward model
 
@@ -47,14 +47,19 @@ loss.backward()       # writes the gradient into image.grad
 optimizer.step()     # updates image using that gradient
 ```
 
-The public interface only needs forward projection. `_ProjectTranspose` is a
+The public interface only needs forward projection. In `huo.torch`, `_ProjectTranspose` is a
 private implementation of $A^T$ used during backward. It calls the native
 bilinear sampling VJP from the pinned PyTorch version directly, avoiding a
 forward sampling pass over a synthetic zero image.
 
+In `huo.jax`, the forward sampler is built entirely from native JAX operations.
+Automatic differentiation produces the sampled transpose; no custom JVP or VJP
+is required. Its loss is differentiated with `jax.value_and_grad` rather than
+calling `.backward()` on a tensor.
+
 ## Higher derivatives and memory
 
-`_Project` and `_ProjectTranspose` form a pair: the backward of $A$ applies
+The PyTorch `_Project` and `_ProjectTranspose` form a pair: the backward of $A$ applies
 $A^T$, and the backward of $A^T$ applies $A$. Their JVP rules apply the same
 linear map to input tangents. A quadratic data loss has
 
@@ -73,6 +78,11 @@ images, checks finite differences, exercises `torch.func` compositions, and
 bounds retained sampling storage. `benchmarks/autograd.py` reports timings and
 unique live saved-tensor storage for ordinary and higher-order gradient graphs.
 
+The JAX `scan` strategy checkpoints each view to recompute interpolation
+intermediates during backward. The `vmap` strategy instead vectorizes angles
+and can retain much larger temporary arrays. Both support higher derivatives;
+the [JAX comparison](jax_benchmark.md) records the measured tradeoff.
+
 ## Constraints and optimizers
 
 With plain SGD and step size $\eta$, a nonnegative projected update is
@@ -84,10 +94,10 @@ $$
 The convenience solver uses Adam, whose moment estimates and adaptive scaling
 determine the update before the nonnegative clamp. `lr` and `steps` specify
 optimizer settings; they do not certify convergence or image uniqueness.
-The helper returns a detached result. The projector remains differentiable
+The helpers stop gradients through their returned reconstruction. The projector remains differentiable
 when included in a custom optimization loop or neural network.
 
-Regularizers can be added to the loss using ordinary PyTorch operations. For
+Regularizers can be added to the loss using ordinary PyTorch or JAX operations. For
 example, a finite-difference smoothness term contributes its own gradient in
 addition to the projection-data gradient. With incomplete or noisy data, the
 chosen penalty and constraints influence which image is recovered.

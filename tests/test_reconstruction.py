@@ -2,9 +2,11 @@
 
 import numpy as np
 import pytest
-import torch
 
-from huo import FanbeamGeometry, FanbeamProjector, reconstruct
+torch = pytest.importorskip("torch")
+
+from huo import FanbeamGeometry
+from huo.torch import FanbeamProjector, reconstruct
 from huo.cli import main
 
 

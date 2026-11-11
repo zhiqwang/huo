@@ -1,14 +1,12 @@
 """Image reconstruction with a standard PyTorch loss and optimizer."""
 
-import math
-from numbers import Integral
-
 import torch
 from torch import Tensor, nn
 import torch.nn.functional as F
 
-from huo._validation import check_tensor
-from huo.projector import FanbeamProjector
+from huo._settings import validate_optimization
+from huo.torch._validation import check_tensor
+from huo.torch.projector import FanbeamProjector
 
 
 def reconstruct(
@@ -31,10 +29,7 @@ def reconstruct(
     Optimization enables gradients locally, including when called from
     no_grad or inference_mode. Nonnegativity is enforced after each step.
     """
-    if isinstance(steps, bool) or not isinstance(steps, Integral) or steps < 1:
-        raise ValueError("steps must be a positive integer")
-    if not math.isfinite(lr) or lr <= 0:
-        raise ValueError("lr must be positive and finite")
+    validate_optimization(steps, lr, nonnegative)
     check_tensor(
         measured, (projector.angles.numel(), projector.geometry.det_count), projector.angles, "measured"
     )

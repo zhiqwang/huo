@@ -1,13 +1,16 @@
 # Huo Documentation
 
 Huo provides differentiable fan-beam CT projection and loss-based image
-reconstruction with PyTorch. Optimize an image or a neural network using a
-standard forward, loss, backward, and optimizer loop.
+reconstruction with PyTorch and JAX. Optimize an image or a neural network
+using a forward model, scalar loss, automatic gradients, and an optimizer.
 
 - [Tutorial](tutorial.md): image optimization, batches, neural networks, and CLI.
+- [JAX guide](jax.md): the optional JAX backend, PyTree state, JIT and Optax.
 - [Python API](api.md): geometry, the projector module, and the reconstruction helper.
 - [Autograd Reconstruction](autograd.md): sampled forward models, gradients,
   higher derivatives, and memory.
+- [JAX Comparison](jax_benchmark.md): numerical reproduction, CPU timings,
+  compilation costs, and memory measurements.
 - [Geometry](geometry.md): scanner diagrams, coordinate conventions, sampling
   grids, and parameter reference.
 - [Interactive Browser Demo](demo/index.md):
@@ -31,8 +34,10 @@ Source code, installation instructions, and issue tracking are available in the
 :maxdepth: 2
 
 Tutorial <tutorial>
+JAX guide <jax>
 Python API <api>
 Autograd Reconstruction <autograd>
+JAX Comparison <jax_benchmark>
 Geometry <geometry>
 Interactive Browser Demo <demo/index>
 Browser ART: Proofs and Limits <backward_propagation_proof>
