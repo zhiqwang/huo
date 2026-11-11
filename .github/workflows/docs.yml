@@ -1,10 +1,11 @@
-name: Deploy documentation
+name: Deploy documentation and demo
 
 on:
   push:
     branches: [main]
     paths:
       - "docs/**"
+      - "packages/**"
       - "lean/**"
       - "pyproject.toml"
       - "uv.lock"
@@ -13,6 +14,7 @@ on:
     branches: [main]
     paths:
       - "docs/**"
+      - "packages/**"
       - "lean/**"
       - "pyproject.toml"
       - "uv.lock"
@@ -53,12 +55,25 @@ jobs:
           lake build
 
   build:
-    name: Build documentation
+    name: Build documentation and demo
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
       - name: Check out repository
         uses: actions/checkout@v6
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: packages/package-lock.json
+
+      - name: Build browser demo
+        working-directory: packages
+        run: |
+          npm ci
+          npm run build
 
       - name: Set up Python
         uses: actions/setup-python@v6
@@ -73,6 +88,9 @@ jobs:
 
       - name: Build documentation with warnings treated as errors
         run: uv run --locked --only-group docs sphinx-build -b html -W --keep-going docs site
+
+      - name: Include browser demo in Pages site
+        run: cp -R packages/demo packages/src site/
 
       - name: Upload Pages artifact
         if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'

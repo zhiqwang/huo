@@ -4,6 +4,8 @@ The site is generated from Markdown files in `docs/` with Sphinx and PyTorch
 Sphinx Theme 2. It is published at
 [zhiqwang.github.io/huo](https://zhiqwang.github.io/huo/). The site language,
 page titles, header, navigation, and search interface are English.
+The same deployment includes the
+[interactive browser demo](https://zhiqwang.github.io/huo/demo/).
 
 ## Local preview and strict build
 
@@ -29,6 +31,23 @@ uv run --locked --only-group docs sphinx-build -b html -W --keep-going docs site
 The output is written to `site/`. Both that directory and `.venv/` are ignored
 by Git. Documentation dependencies are defined in the `docs` group in
 `pyproject.toml` and locked in `uv.lock`; run `uv lock` after changing them.
+
+To include the browser demo in a local preview of the complete Pages site,
+run these commands from the repository root after the Sphinx build above
+(Node.js 22 and npm are required):
+
+```bash
+npm --prefix packages ci
+npm --prefix packages run build
+cp -R packages/demo packages/src site/
+python -m http.server 8000 --bind 0.0.0.0 --directory site
+```
+
+Open `http://127.0.0.1:8000/demo/`. The `demo/` and `src/` directories stay
+next to each other so the demo's relative JavaScript imports also work under
+the `/huo/` GitHub Pages prefix. The demo loads jax-js from `esm.sh`; visitors
+need access to that CDN. Rebuild and copy the demo again after changing its
+TypeScript sources.
 
 ## Adding articles and mathematical notation
 
@@ -96,13 +115,15 @@ deployment → Source** in
 [Settings → Pages](https://github.com/zhiqwang/huo/settings/pages). See
 [GitHub's custom workflow instructions](https://docs.github.com/en/pages/getting-started-with-github-pages/using-custom-workflows-with-github-pages).
 
-The [Deploy documentation workflow](https://github.com/zhiqwang/huo/actions/workflows/docs.yml)
-runs for changes to documentation, Lean sources, documentation dependencies,
-or the workflow itself:
+The [Deploy documentation and demo workflow](https://github.com/zhiqwang/huo/actions/workflows/docs.yml)
+runs for changes to documentation, the TypeScript package, Lean sources,
+documentation dependencies, or the workflow itself:
 
-- Pull requests run a strict Sphinx build and check the Lean proofs.
-- Pushes to `main` build the site and upload the Pages artifact. Deployment
-  waits for both the documentation and proof jobs to succeed.
+- Pull requests build the TypeScript demo, run a strict Sphinx build, and
+  check the Lean proofs.
+- Pushes to `main` build the documentation and demo into one Pages artifact.
+  Deployment waits for both the build and proof jobs to succeed. Documentation
+  is served at `/huo/`, and the demo is served at `/huo/demo/`.
 - **Run workflow** on `main` republishes manually; selecting another branch
   runs the checks without deploying.
 
