@@ -8,7 +8,7 @@ version = "0.1.0a0"
 description = "CT Algebraic Reconstruction Technique (ART) with PyTorch"
 readme = "README.md"
 license = "GPL-3.0-only"
-requires-python = ">=3.9"
+requires-python = ">=3.11"
 authors = [
     { name = "Zhiqiang Wang", email = "zhiqwang@outlook.com" },
 ]
@@ -19,8 +19,6 @@ classifiers = [
     "License :: OSI Approved :: GNU General Public License v3 (GPLv3)",
     "Operating System :: OS Independent",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.9",
-    "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Topic :: Education",
@@ -30,6 +28,7 @@ classifiers = [
 ]
 dependencies = [
     "numpy>=1.18.5",
+    "torch==2.15.0+cpu",
 ]
 
 [dependency-groups]
@@ -45,7 +44,13 @@ docs = [
 docs = { requires-python = ">=3.12" }
 
 [tool.uv.sources]
+torch = { index = "pytorch-cpu" }
 pytorch-sphinx-theme2 = { git = "https://github.com/pytorch/pytorch_sphinx_theme.git", rev = "7252b2bb574a0dd534e7c18bfb41e04182f5d1f6" }
+
+[[tool.uv.index]]
+name = "pytorch-cpu"
+url = "https://download.pytorch.org/whl/cpu"
+explicit = true
 
 [project.scripts]
 huo-art = "huo.cli:main"

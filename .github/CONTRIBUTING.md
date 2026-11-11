@@ -29,21 +29,16 @@ We use GitHub issues to track public bugs. Please ensure your description is cle
 
 ## Development installation
 
-### Install PyTorch and TorchVision
-
-```bash
-conda install pytorch torchvision cudatoolkit=10.2 -c pytorch
-# or with pip (see https://pytorch.org/get-started/locally/)
-# pip install numpy
-# pip install torch torchvision
-```
-
 ### Install huo
+
+Use Python 3.11 or newer and uv. The project declares PyTorch `2.15.0+cpu`
+and configures its CPU package index:
 
 ```bash
 git clone https://github.com/zhiqwang/huo.git
 cd huo
-pip install -e .
+uv sync --locked --python 3.12
+source .venv/bin/activate
 ```
 
 ## Development Process

@@ -732,9 +732,10 @@ x_c=a_x\left(-1+\frac{2c}{N-1}\right)=c-\frac{N-1}{2}.
 $$
 
 Rows use the same formula. Python's forward image sampler selects
-`align_corners=True` in `grid_sample`. Backprojection constructs the pixel
-grid directly with `meshgrid`, rotates it in pixel units, and interpolates
-the 1-D detector row at $u/\Delta u+(M-1)/2$. TypeScript uses the same
+`align_corners=True` in `grid_sample`. Backprojection scales the 1-D pixel
+centres by the rotation coefficients, broadcasts them into a rotated grid
+in pixel units, and interpolates the 1-D detector row at
+$u/\Delta u+(M-1)/2$. TypeScript uses the same
 coordinates. Image and detector interpolation have zero-valued out-of-range
 neighbours, retaining partial edge weights. The image sampler's normalized-grid
 contract is described in
