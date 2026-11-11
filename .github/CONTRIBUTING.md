@@ -72,7 +72,7 @@ uv run --locked --all-extras --group test pytest tests -q
 
 Run `npm --prefix packages ci` and `npm --prefix packages test` to build and
 test the TypeScript operators before pytest; this enables Python/TypeScript
-forward-projection parity checks. Reconstruction algorithms differ. CI runs
+projection, gradient, JVP, HVP and Adam parity checks. CI runs
 both suites on Python 3.11 and 3.12. It also installs non-editable base-only,
 Torch-only, and JAX-only packages and runs `tools/check_installation.py` with
 the installed environment's `python -I` to check dependency isolation and CLI
@@ -93,8 +93,10 @@ measurements. Do not run competing benchmarks concurrently on the selected CPU.
 The Python API is shared NumPy geometry plus explicit `huo.torch` and `huo.jax`
 backends, each exposing a forward projector and loss/optimizer workflow.
 Keep the tutorial, API reference, CLI examples, and autograd derivation aligned
-with that interface. The TypeScript ART example and its proofs are documented
-separately. Follow `docs/publishing.md` for a strict Sphinx build.
+with that interface. The jax-js backend uses native gradients and chunked Adam;
+keep its ownership and asynchronous progress contracts in `docs/jax_js.md`.
+The residual-backprojection article and Lean proofs preserve the historical
+ART model. Follow `docs/publishing.md` for a strict Sphinx build.
 
 ### Pull Request Recommendations
 

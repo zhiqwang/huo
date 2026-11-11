@@ -3,24 +3,27 @@
 tocdepth: 2
 ---
 
-# Browser ART: Residual Backprojection and Its Limits
+# Historical ART: Residual Backprojection and Its Limits
 
 Residual backprojection can correct projection errors, but it is not an inverse
-of forward projection. This article reviews the browser operators in
-[packages/src/art.ts](https://github.com/zhiqwang/huo/blob/main/packages/src/art.ts), derives
+of forward projection. This historical article reviews the former browser operators in
+[the archived art.ts](https://github.com/zhiqwang/huo/blob/37d1e524df2d3c82fcbe6942b466903eb16405ff/packages/src/art.ts), derives
 conditions under which their *idealized iterations* converge, and identifies
-what those conditions do and do not establish about the current implementation.
+what those conditions do and do not establish about that implementation.
 
 The main distinctions are between a continuous ray model and sampled matrices,
 between one ray and a whole angle, and between a small projection residual and
-recovery of a particular image. The browser implementation performs one
+recovery of a particular image. That implementation performed one
 randomly ordered sweep from zero. None of the convergence theorems below
 certifies exact reconstruction by that single sweep.
 
-The Python package uses a forward-only `FanbeamProjector` and a loss/optimizer
-loop. Its backward applies the sampled transpose automatically. See
+The current Python and [jax-js](jax_js.md) packages use a forward-only
+`FanbeamProjector` and a loss/optimizer loop. Their backward applies the sampled
+transpose automatically. The former ART/backfill methods have been removed. See
 [Autograd Reconstruction](autograd.md) for that objective and gradient; the
-iteration analyzed here is the separate browser residual-backfill algorithm.
+iteration analyzed here is the historical residual-backfill algorithm, not the
+current browser Adam solver. The Lean statements remain mathematical results
+about their stated models.
 
 All mathematical statements use real arithmetic. Discretization error,
 measurement noise, and floating-point error are separate issues. Selected
@@ -124,7 +127,7 @@ $$
 =\frac{u_\theta(p)}{\Delta u}+\frac{M-1}{2}.
 $$
 
-The browser implementation uses the right-hand expression to interpolate the 1-D
+The historical browser implementation used the right-hand expression to interpolate the 1-D
 detector row directly. This verifies the perspective formula on the shared
 grid, not an adjoint identity.
 
@@ -357,7 +360,7 @@ one at **every sampled point** would yield
 $(K+1)\Delta t=L+\Delta t$, not $L$. Actual samples may taper or vanish
 because of zero padding, and the distance window may omit part of the
 image support. In particular, a square image can have chords longer than
-$L$; a circular support mask is not enforced by the browser operators.
+$L$; a circular support mask was not enforced by the historical browser operators.
 Thus neither a full chord length nor $L$ automatically equals the actual
 row sum
 
@@ -473,7 +476,7 @@ $$
 Here $A^\dagger b$ is the minimum Euclidean norm solution and $P_{\ker A}$
 is orthogonal projection. Starting at zero selects that minimum-norm solution,
 which need not be the original image. Equation (21) concerns the fixed,
-matched, unclipped iteration, not the browser's angle updates. For general
+matched, unclipped iteration, not the historical browser's angle updates. For general
 $B$, the updates remain in the affine space $x^0+\operatorname{range}(B)$;
 restricted stability and solution selection require their own hypotheses.
 
@@ -724,7 +727,7 @@ backprojection weights plus clipping ensure recovery. It is an algebraic
 example, not a numerical experiment with the repository's CT geometry.
 
 (findings-specific-to-this-repository)=
-## Code limits
+## Historical code limits
 
 ### Shared grids do not make the operators adjoints
 
@@ -736,19 +739,19 @@ x_c=a_x\left(-1+\frac{2c}{N-1}\right)=c-\frac{N-1}{2}.
 $$
 
 Rows use the same formula. Python's forward image sampler selects
-`align_corners=True` in `grid_sample`. Browser backprojection scales the 1-D pixel
-centres by the rotation coefficients, broadcasts them into a rotated grid
-in pixel units, and interpolates the 1-D detector row at
-$u/\Delta u+(M-1)/2$. TypeScript uses the same
-coordinates. Image and detector interpolation have zero-valued out-of-range
+`align_corners=True` in `grid_sample`. Historical browser backprojection scaled the 1-D pixel
+centres by the rotation coefficients, broadcast them into a rotated grid
+in pixel units, and interpolated the 1-D detector row at
+$u/\Delta u+(M-1)/2$. That TypeScript implementation used the same
+coordinates. Image and detector interpolation had zero-valued out-of-range
 neighbours, retaining partial edge weights. The image sampler's normalized-grid
 contract is described in
 [PyTorch's `grid_sample` reference](https://docs.pytorch.org/docs/stable/generated/torch.nn.functional.grid_sample.html).
 
-[tests/test_geometry.py](https://github.com/zhiqwang/huo/blob/main/tests/test_geometry.py)
+[archived tests/test_geometry.py](https://github.com/zhiqwang/huo/blob/37d1e524df2d3c82fcbe6942b466903eb16405ff/tests/test_geometry.py)
 and
-[packages/tests/geometry.test.mjs](https://github.com/zhiqwang/huo/blob/main/packages/tests/geometry.test.mjs)
-check ray incidence, detector ramps, quarter-turn direction, odd/even sizes,
+[archived packages/tests/geometry.test.mjs](https://github.com/zhiqwang/huo/blob/37d1e524df2d3c82fcbe6942b466903eb16405ff/packages/tests/geometry.test.mjs)
+checked ray incidence, detector ramps, quarter-turn direction, odd/even sizes,
 and shared boundary examples. The physical-unit test also checks how
 physical-coordinate data converts to the current convention. These tests
 establish sampled cases, not $B_\theta=A_\theta^T$ or convergence; the weights
@@ -761,14 +764,17 @@ higher derivatives, and transform compositions. JAX derives these operations
 from its native sampler without a custom derivative; `tests/test_jax_reference.py`
 checks numerical agreement with PyTorch. Both reconstruction helpers minimize
 projection loss with Adam. Those identities do not identify
-the browser's uniform backfill $B_\theta$ with $A_\theta^T$.
+the historical uniform backfill $B_\theta$ with $A_\theta^T$.
+The current jax-js backend also derives the sampled transpose natively, and
+cross-language tests now compare derivatives and Adam reconstruction as well
+as forward values.
 
-### Each call starts from zero and performs one sweep
+### The former ART call started from zero and performed one sweep
 
-The TypeScript `RadonFanbeam.art` allocates a zero image, visits every angle
-once in a Fisher–Yates random permutation, and returns. Repeating the call
-starts from zero again. Repeated-sweep theorems describe an extension that
-would preserve the iterate between sweeps. The Python CLI instead runs a
+The former TypeScript `RadonFanbeam.art` allocated a zero image, visited every
+angle once in a Fisher–Yates random permutation, and returned. Each call started
+from zero again. Repeated-sweep theorems describe an extension that would have
+preserved the iterate between sweeps. Current Python and browser helpers run a
 configured number of Adam steps on a fixed measurement loss.
 
 ### An underdetermined acquisition cannot identify every pixel image
@@ -869,6 +875,6 @@ is included directly from the compiled source:
 ```
 
 The mathematics establishes why residual backfill can be useful and gives
-conditions for convergence. Applying those conditions to a concrete Huo run
-still requires checking its sampled operators, available measurements,
-normalization, and iteration schedule.
+conditions for convergence of those residual-backfill models. It does not
+establish convergence of the current Adam solver; that would require an
+analysis of its objective, constraints and optimizer dynamics.

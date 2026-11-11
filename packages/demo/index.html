@@ -10,7 +10,7 @@
     <main>
       <h1>Interactive Browser Demo</h1>
       <p>
-        Watch a phantom image become a sinogram, then reconstruct it with ART.
+        Watch a phantom image become a sinogram, then reconstruct it by minimizing projection loss.
         Select <strong>Start</strong> to run both stages in your browser.
       </p>
 <!-- demo-content:start -->
@@ -18,6 +18,7 @@
   <div class="huo-demo-controls">
     <div class="huo-demo-run">
       <button id="startBtn" type="button" disabled>Start</button>
+      <button id="stopBtn" type="button" disabled>Stop</button>
       <div class="huo-demo-progress">
         <progress id="progress" value="0" max="100" aria-label="Reconstruction progress"></progress>
         <span id="status" role="status">Loading…</span>
@@ -31,21 +32,21 @@
   </div>
   <div class="huo-demo-panels">
     <figure class="huo-demo-panel">
-      <figcaption><strong>Original phantom</strong><span>Input image · 128 × 128 pixels</span></figcaption>
+      <figcaption><strong>Original phantom</strong><span>Input image · 64 × 64 pixels</span></figcaption>
       <div class="huo-demo-canvas">
-        <canvas id="phantom" width="128" height="128" role="img" aria-label="Original phantom image"></canvas>
+        <canvas id="phantom" width="64" height="64" role="img" aria-label="Original phantom image"></canvas>
       </div>
     </figure>
     <figure class="huo-demo-panel">
       <figcaption><strong>Sinogram</strong><span>Rows: angles · Columns: detector</span></figcaption>
       <div class="huo-demo-canvas">
-        <canvas id="sinogram" width="200" height="180" role="img" aria-label="Sinogram from forward projection"></canvas>
+        <canvas id="sinogram" width="80" height="60" role="img" aria-label="Sinogram from forward projection"></canvas>
       </div>
     </figure>
     <figure class="huo-demo-panel">
-      <figcaption><strong>ART reconstruction</strong><span>Image recovered from projections</span></figcaption>
+      <figcaption><strong>Adam reconstruction</strong><span>Image fitted to measured projections</span></figcaption>
       <div class="huo-demo-canvas">
-        <canvas id="reconstruction" width="128" height="128" role="img" aria-label="Image reconstructed using ART"></canvas>
+        <canvas id="reconstruction" width="64" height="64" role="img" aria-label="Image reconstructed by minimizing projection loss"></canvas>
       </div>
     </figure>
   </div>
@@ -55,7 +56,8 @@
 <script type="importmap">
   {
     "imports": {
-      "@jax-js/jax": "https://esm.sh/@jax-js/jax@0.1.27"
+      "@jax-js/jax": "https://esm.sh/@jax-js/jax@0.1.27",
+      "@jax-js/optax": "https://esm.sh/@jax-js/optax@0.1.3?external=@jax-js/jax"
     }
   }
 </script>

@@ -167,6 +167,15 @@
 }
 
 @media (max-width: 767px) {
+  .huo-demo-run {
+    flex-wrap: wrap;
+    gap: 0.75rem;
+  }
+
+  .huo-demo-progress {
+    flex-basis: 100%;
+  }
+
   .huo-demo-panels {
     grid-template-columns: 1fr;
   }

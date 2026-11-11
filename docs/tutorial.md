@@ -213,26 +213,27 @@ uv run --locked --extra torch python -m benchmarks.autograd --batch-size 2
 ```
 
 Tests check the actual sampled matrix, finite differences, gradient transforms,
-module state, optimizer behavior, and forward-projection parity with TypeScript.
+module state, optimizer behavior, and projection/derivative/reconstruction parity with TypeScript.
 Memory regressions bound retained sampling storage. Benchmarks report timings
 and unique live tensor storage; wall-clock thresholds are not enforced in CI.
 
 ## Browser demo
 
-The [browser demo](demo/index.md) is a separate TypeScript ART-style example.
-It shares coordinates, ray sampling, and sinogram layout with the Python
-projector. Its reconstruction backfills one angle's residual at a time and
-uses a random angle order. That update is not the Python Adam loss loop.
+The [browser demo](demo/index.md) uses TypeScript and jax-js native gradients.
+It shares coordinates, sampling, sinogram layout and the Adam projection-loss
+objective with Python. See the [jax-js guide](jax_js.md) for its pure forward
+function, explicit array ownership and asynchronous reconstruction helper.
 
 Build the standalone example with:
 
 ```bash
 npm --prefix packages ci
 npm --prefix packages run build
-python -m http.server 8080 --bind 0.0.0.0 --directory packages
+python -m http.server 8080 --bind 0.0.0.0 --directory packages/dist
 ```
 
 Open `http://localhost:8080/demo/`. Use the
 [Sphinx preview](publishing.md#local-preview-and-strict-build) for the complete
 site and themed demo. The demo loads jax-js from `esm.sh` and requires access
-to that CDN. Its typed-array sampling loops run in JavaScript.
+to that CDN. Sampling, derivatives and optimizer updates execute through
+jax-js on WebGPU when available, or WASM otherwise.

@@ -1,6 +1,6 @@
 # Huo
 
-Differentiable fan-beam CT projection and image reconstruction with PyTorch and JAX.
+Differentiable fan-beam CT projection and image reconstruction with PyTorch, JAX and browser jax-js.
 Huo maps an image to predicted line integrals; a loss compares them with fixed
 measurements, and an optimizer updates the image or a neural network.
 
@@ -33,10 +33,10 @@ For a wheel installation outside uv, install the PyTorch extra with
 `pip install 'huo[torch]' --extra-index-url https://download.pytorch.org/whl/cpu`,
 or use `pip install 'huo[jax]'` for JAX.
 
-Images and measurements are float32/float64 and must match the projector's
-dtype. Angles are radians and scanner distances are in pixels. The PyTorch
-backend is CPU-only; JAX uses its configured device, with CPU correctness
-covered by this project's tests.
+Python images and measurements are float32/float64 and must match the projector's
+dtype; the browser backend supports float32. Angles are radians and scanner
+distances are in pixels. The PyTorch backend is CPU-only; JAX uses its configured
+device, with CPU correctness covered by this project's tests.
 
 ## Optimize an image with PyTorch
 
@@ -126,17 +126,18 @@ Select JAX with `--backend jax`; `--method scan|vmap` applies to that backend.
 
 - [Tutorial](docs/tutorial.md): complete PyTorch loops, batches, networks, and CLI.
 - [JAX guide](docs/jax.md): PyTree state, JIT, Optax, and input contracts.
+- [jax-js guide](docs/jax_js.md): native browser gradients, ownership, and chunked Adam.
 - [API](docs/api.md): geometry, module state, dtype, and optimizer contracts.
 - [Autograd reconstruction](docs/autograd.md): the loss and its discrete gradient.
 - [JAX comparison](docs/jax_benchmark.md): the original JAX reproduction with
   numerical tests, CPU benchmarks, compilation costs, and memory measurements.
 - [Geometry](docs/geometry.md): scanner coordinates and sampling weights.
-- [Browser demo](https://zhiqwang.github.io/huo/demo/): a separate TypeScript ART
-  example. It shares forward geometry with Python and uses its own residual
-  backfill reconstruction algorithm.
+- [Browser demo](https://zhiqwang.github.io/huo/demo/): TypeScript loss optimization
+  using the same forward model and Adam objective, with progress and cancellation.
 
-The browser example and its [proof article](docs/backward_propagation_proof.md)
-illustrate ART-style updates; Python reconstruction uses loss minimization.
+The [proof article](docs/backward_propagation_proof.md) preserves mathematical
+analysis of the former ART-style residual-backfill algorithm. Current Python
+and browser reconstruction both use loss minimization.
 
 ## Checks
 
@@ -149,7 +150,7 @@ uv run --locked --extra torch python -m benchmarks.autograd
 ```
 
 Tests cover gradients, higher derivatives, batches, optimizer behavior, module
-state, and Python/TypeScript forward-projection parity. See
+state, and Python/TypeScript projection, derivative, and reconstruction parity. See
 [documentation publishing](docs/publishing.md) for Sphinx builds and Lean checks.
 
 ## Repository structure
@@ -160,7 +161,7 @@ huo/
   torch/                      nn.Module, private autograd pair, Adam solver
   jax/                        PyTree, native AD sampling, compiled Optax solver
   cli.py                      Backend selection and NumPy input/output
-packages/                     TypeScript ART browser example
+packages/                     Differentiable jax-js operators and browser demo
 tests/                        Python regressions and shared geometry fixtures
 benchmarks/                   CPU timing and retained autograd storage
 docs/                         English Sphinx documentation

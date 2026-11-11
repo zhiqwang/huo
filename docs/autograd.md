@@ -1,6 +1,6 @@
 # Autograd Reconstruction
 
-Huo's Python reconstruction minimizes a scalar loss using PyTorch or JAX. The image
+Huo's reconstruction minimizes a scalar loss using PyTorch, JAX or jax-js. The image
 or neural-network weights are optimization variables; acquisition geometry is
 fixed. The [PyTorch tutorial](tutorial.md) and [JAX guide](jax.md) contain runnable loops.
 
@@ -102,14 +102,16 @@ example, a finite-difference smoothness term contributes its own gradient in
 addition to the projection-data gradient. With incomplete or noisy data, the
 chosen penalty and constraints influence which image is recovered.
 
-## Relationship to the browser ART example
+## Browser gradients and historical ART
 
-The TypeScript browser example implements a separate uniform residual-backfill
-map $B_\theta$ and updates one angle at a time. Its $B_\theta$ is generally not
-$A_\theta^T$. Python loss optimization uses the transpose of its sampled forward
-map and does not reproduce that browser update sequence.
+The [jax-js backend](jax_js.md) differentiates its bilinear gather and sum
+operations natively. Its chunked solver accumulates the complete mean-loss
+gradient before each Adam update. Python and browser reconstruction therefore
+share the objective and update semantics.
 
 The [residual-backprojection article](backward_propagation_proof.md) and Lean
-proofs analyze that separate algorithm and its mathematical assumptions. A
+proofs analyze the former browser's uniform residual-backfill map $B_\theta$,
+which is generally not $A_\theta^T$. They remain historical mathematical
+analysis, rather than a convergence certificate for the current Adam solver. A
 successful gradient check establishes differentiation of the sampled model;
 it does not establish that a measurement set uniquely determines an image.

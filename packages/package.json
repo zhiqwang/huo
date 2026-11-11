@@ -1,17 +1,18 @@
 {
-  "name": "huo-art-js",
+  "name": "huo-jax-js",
   "version": "0.1.0",
-  "description": "CT Algebraic Reconstruction Technique (ART) implemented with jax-js",
+  "description": "Differentiable fan-beam projection and loss-based CT reconstruction with jax-js",
   "type": "module",
   "scripts": {
-    "build": "tsc",
-    "build:docs": "tsc --outDir dist --sourceMap false --declaration false --declarationMap false",
+    "build": "node tools/build.mjs",
+    "build:docs": "node tools/build.mjs --docs",
     "typecheck": "tsc --noEmit",
     "test": "npm run build && node --test tests/*.test.mjs",
-    "dev": "tsc && npx serve ."
+    "dev": "npm run build && npx serve dist"
   },
   "dependencies": {
-    "@jax-js/jax": "^0.1.27"
+    "@jax-js/jax": "0.1.27",
+    "@jax-js/optax": "0.1.3"
   },
   "license": "GPL-3.0",
   "devDependencies": {
