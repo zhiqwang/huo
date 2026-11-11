@@ -1,0 +1,210 @@
+/* The shared component inherits PyTorch Sphinx Theme 2's light/dark tokens. */
+.huo-demo {
+  --demo-background: var(--pst-color-background, #fff);
+  --demo-surface: var(--pst-color-surface, #f3f4f7);
+  --demo-border: var(--pst-color-border, #e2e2e2);
+  --demo-text: var(--pst-color-text-base, #262626);
+  --demo-muted: var(--pst-color-text-muted, #646469);
+  --demo-accent: var(--pst-color-primary, #de3412);
+  color: var(--demo-text);
+  margin: 1.5rem 0;
+}
+
+.huo-demo,
+.huo-demo * {
+  box-sizing: border-box;
+}
+
+.huo-demo-controls {
+  display: grid;
+  gap: 1rem;
+  padding: 1rem;
+  margin-bottom: 1.25rem;
+  border: 1px solid var(--demo-border);
+  border-radius: 0.5rem;
+  background: var(--demo-surface);
+}
+
+.huo-demo-run {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.huo-demo button {
+  flex: none;
+  padding: 0.5rem 1.5rem;
+  border: 1px solid var(--demo-accent);
+  border-radius: 0.25rem;
+  background: var(--demo-accent);
+  color: var(--demo-background);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.huo-demo button:hover:not(:disabled) {
+  filter: brightness(0.9);
+}
+
+.huo-demo button:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+
+.huo-demo button:focus-visible,
+.huo-demo input:focus-visible {
+  outline: 2px solid var(--demo-accent);
+  outline-offset: 3px;
+}
+
+.huo-demo-progress {
+  display: grid;
+  flex: 1;
+  min-width: 0;
+  gap: 0.4rem;
+}
+
+.huo-demo progress {
+  display: block;
+  width: 100%;
+  height: 0.5rem;
+  border: 0;
+  border-radius: 1rem;
+  overflow: hidden;
+  appearance: none;
+  background: var(--demo-border);
+  accent-color: var(--demo-accent);
+}
+
+.huo-demo progress::-webkit-progress-bar {
+  background: var(--demo-border);
+}
+
+.huo-demo progress::-webkit-progress-value {
+  background: var(--demo-accent);
+}
+
+.huo-demo progress::-moz-progress-bar {
+  background: var(--demo-accent);
+}
+
+.huo-demo #status {
+  color: var(--demo-muted);
+  font-size: 0.875rem;
+  overflow-wrap: anywhere;
+}
+
+.huo-demo-delay {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.5rem 0.75rem;
+  font-size: 0.875rem;
+}
+
+.huo-demo-delay label {
+  margin: 0;
+  font-weight: 600;
+}
+
+.huo-demo-delay input {
+  flex: 1;
+  min-width: 6rem;
+  max-width: 15rem;
+  accent-color: var(--demo-accent);
+}
+
+.huo-demo-delay output {
+  min-width: 3.75rem;
+  color: var(--demo-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.huo-demo-panels {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1rem;
+}
+
+.huo-demo-panel {
+  min-width: 0;
+  margin: 0;
+  padding: 0.75rem;
+  border: 1px solid var(--demo-border);
+  border-radius: 0.5rem;
+  background: var(--demo-background);
+}
+
+.huo-demo-panel figcaption {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  min-height: 4.5rem;
+  margin-bottom: 0.5rem;
+  font-size: 0.875rem;
+  text-align: left;
+}
+
+.huo-demo-panel figcaption span {
+  color: var(--demo-muted);
+  font-size: 0.75rem;
+}
+
+.huo-demo-canvas {
+  display: grid;
+  place-items: center;
+  aspect-ratio: 1;
+  overflow: hidden;
+  border-radius: 0.25rem;
+  background: #000;
+}
+
+.huo-demo canvas {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+@media (max-width: 767px) {
+  .huo-demo-panels {
+    grid-template-columns: 1fr;
+  }
+
+  .huo-demo-panel figcaption {
+    min-height: 0;
+  }
+}
+
+/* A simple local preview shell; Sphinx provides the published page layout. */
+.huo-demo-page {
+  max-width: 70rem;
+  margin: 0 auto;
+  padding: clamp(1rem, 4vw, 3rem);
+  background: #fff;
+  color: #262626;
+  font: 1rem/1.65 system-ui, sans-serif;
+}
+
+.huo-demo-page h1 {
+  font-size: clamp(1.75rem, 4vw, 2.5rem);
+  line-height: 1.2;
+}
+
+.huo-demo-page a {
+  color: var(--pst-color-primary, #de3412);
+}
+
+@media (prefers-color-scheme: dark) {
+  .huo-demo-page {
+    --pst-color-background: #14181e;
+    --pst-color-surface: #222832;
+    --pst-color-border: #48566b;
+    --pst-color-text-base: #e0e0e0;
+    --pst-color-text-muted: #a6acb5;
+    --pst-color-primary: #f2765d;
+    background: var(--pst-color-background);
+    color: var(--pst-color-text-base);
+    color-scheme: dark;
+  }
+}

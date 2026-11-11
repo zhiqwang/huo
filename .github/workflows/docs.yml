@@ -73,7 +73,7 @@ jobs:
         working-directory: packages
         run: |
           npm ci
-          npm run build
+          npm run build:docs
 
       - name: Set up Python
         uses: actions/setup-python@v6
@@ -88,9 +88,6 @@ jobs:
 
       - name: Build documentation with warnings treated as errors
         run: uv run --locked --only-group docs sphinx-build -b html -W --keep-going docs site
-
-      - name: Include browser demo in Pages site
-        run: cp -R packages/demo packages/src site/
 
       - name: Upload Pages artifact
         if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
