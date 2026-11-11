@@ -221,7 +221,8 @@ for the full option list.
 (browser-demo-typescript)=
 ## Browser demo
 
-From the repository root:
+Open the [online demo](https://zhiqwang.github.io/huo/demo/) on GitHub Pages,
+or build and serve it locally from the repository root:
 
 ```bash
 cd packages
@@ -233,7 +234,13 @@ python -m http.server 8080 --bind 0.0.0.0
 Open `http://localhost:8080/demo/`, or replace `localhost` with the server's
 address from another device. This serves the browser demo; the Sphinx preview
 has its own [instructions](publishing.md#local-preview-and-strict-build).
-The import map loads jax-js from a CDN, so the demo needs network access.
+
+To use the npm static server, run
+`npx serve . --listen tcp://0.0.0.0:3000 --no-clipboard`
+and open `http://localhost:3000/demo/`.
+
+All calculations run in the browser. The demo loads `@jax-js/jax` from
+`esm.sh`, so the browser needs access to that CDN.
 
 The demo builds one `RadonFanbeam`, generates a phantom on pixel centres,
 then calls `forward` and `art` with progress callbacks. The sinogram canvas

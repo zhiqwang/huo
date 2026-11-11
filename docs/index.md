@@ -6,6 +6,8 @@ with a Python / PyTorch implementation and a TypeScript / jax-js browser demo.
 - [Tutorial](tutorial.md): forward projection, reconstruction, and the browser demo.
 - [Geometry](geometry.md): scanner diagrams, coordinate conventions, sampling
   grids, and parameter reference.
+- [Interactive Browser Demo](https://zhiqwang.github.io/huo/demo/):
+  watch forward projection and ART reconstruction run in your browser.
 - [Residual Backprojection: Proofs and Limits](backward_propagation_proof.md):
   geometry, the connection to ART, convergence conditions, implementation findings,
   and executable Lean proofs.
@@ -26,6 +28,7 @@ Source code, installation instructions, and issue tracking are available in the
 
 Tutorial <tutorial>
 Geometry <geometry>
+Interactive Browser Demo <https://zhiqwang.github.io/huo/demo/>
 Residual Backprojection: Proofs and Limits <backward_propagation_proof>
 Maintaining and Publishing Documentation <publishing>
 ```

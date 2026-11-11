@@ -35,7 +35,8 @@ python -m pip install torch
 python -m pip install -e .
 ```
 
-For the browser demo:
+Open the [online browser demo](https://zhiqwang.github.io/huo/demo/) to run forward
+projection and ART reconstruction in your browser, or build it locally:
 
 ```bash
 cd packages
@@ -46,6 +47,10 @@ python -m http.server 8080 --bind 0.0.0.0
 
 Open `http://localhost:8080/demo/`, or use the server's address from another
 machine. jax-js loads through the demo's CDN import map.
+
+To use the npm static server, run
+`npx serve . --listen tcp://0.0.0.0:3000 --no-clipboard`
+and open `http://localhost:3000/demo/`.
 
 ## Python example
 
