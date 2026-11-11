@@ -40,15 +40,15 @@ before using Huo; the loader does not perform this preprocessing.
 
 ### Install
 
-From a repository checkout, use an activated Python environment:
+From a repository checkout, install and activate the locked CPU environment:
 
 ```bash
-python -m pip install torch
-python -m pip install -e .
+uv sync --locked --python 3.12
+source .venv/bin/activate
 ```
 
-Huo declares Python 3.9 or newer and NumPy as requirements. Use Python 3.11 or
-newer with current PyTorch releases, and install PyTorch separately. The
+Huo requires Python 3.11 or newer, NumPy, and PyTorch `2.15.0+cpu`. The uv
+configuration installs PyTorch from its explicit CPU index. The
 documentation build environment is described in
 [Maintaining and Publishing Documentation](publishing.md).
 
@@ -117,6 +117,11 @@ measures data agreement, not exact image recovery; see the
 The Python implementation accepts finite **CPU `torch.float32` tensors**.
 It validates input shape, dtype, and device. Moving only an input to CUDA is
 insufficient; the current operators use cached CPU coordinates.
+
+Projection and reconstruction preserve gradients with respect to their input
+tensors. Scanner geometry and angles are fixed. To reconstruct without tracking
+gradients from a tensor with `requires_grad=True`, call `art` inside
+`torch.no_grad()`.
 
 | Value | Shape | Interpretation |
 | --- | --- | --- |

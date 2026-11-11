@@ -25,14 +25,15 @@ claims and includes executable Lean proofs.
 
 ## Installation
 
-Use Python 3.11 or newer for current PyTorch releases. Install PyTorch
-explicitly, then Huo:
+Huo requires Python 3.11 or newer and includes PyTorch `2.15.0+cpu` as a
+dependency. Use uv to install the locked environment from the configured
+PyTorch CPU index:
 
 ```bash
 git clone https://github.com/zhiqwang/huo.git
 cd huo
-python -m pip install torch
-python -m pip install -e .
+uv sync --locked --python 3.12
+source .venv/bin/activate
 ```
 
 Open the [online browser demo](https://zhiqwang.github.io/huo/demo/) to run forward

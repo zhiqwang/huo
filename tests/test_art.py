@@ -66,6 +66,56 @@ def test_art_reduces_projection_error(radon):
     torch.testing.assert_close(radon.art(sinogram), reconstructed)
 
 
+@pytest.mark.parametrize("grad_mode", [torch.enable_grad, torch.no_grad, torch.inference_mode])
+def test_art_preserves_input_and_agrees_across_grad_modes(radon, grad_mode):
+    generator = torch.Generator().manual_seed(42)
+    sinogram = torch.rand(12, 40, generator=generator)[:, ::2].requires_grad_()
+    original = sinogram.detach().clone()
+    with torch.random.fork_rng(devices=[]):
+        torch.manual_seed(0)
+        expected = radon.art(sinogram.detach())
+        with grad_mode():
+            torch.manual_seed(0)
+            actual = radon.art(sinogram)
+    assert actual.requires_grad == (grad_mode is torch.enable_grad)
+    torch.testing.assert_close(actual, expected, atol=0, rtol=0)
+    torch.testing.assert_close(sinogram, original, atol=0, rtol=0)
+
+
+def test_art_gradient_matches_finite_difference():
+    radon = RadonFanbeam(5, [0.37, -0.41, math.pi / 2], 20, 10, 13, 1.3)
+    generator = torch.Generator().manual_seed(12)
+    sinogram = (2 + torch.rand(3, 26, generator=generator))[:, ::2].requires_grad_()
+    weights = torch.randn(5, 5, generator=generator)
+    direction = torch.randn(3, 13, generator=generator)
+
+    def loss(value):
+        torch.manual_seed(4)
+        return (radon.art(value) * weights).sum()
+
+    with torch.random.fork_rng(devices=[]):
+        (gradient,) = torch.autograd.grad(loss(sinogram), sinogram)
+        epsilon = 1e-3
+        with torch.no_grad():
+            numerical = (loss(sinogram + epsilon * direction) - loss(sinogram - epsilon * direction)) / (
+                2 * epsilon
+            )
+    assert torch.isfinite(gradient).all() and gradient.norm() > 0
+    torch.testing.assert_close((gradient * direction).sum(), numerical, atol=2e-3, rtol=2e-3)
+
+
+def test_angles_are_copied_and_normalized_before_projection():
+    angles = torch.tensor([math.pi / 2, -0.37123456789, 0.123456789], dtype=torch.float64)
+    expected_angles = angles.float()
+    radon = RadonFanbeam(8, angles, 32, 16, 13, 1.3)
+    image = torch.arange(64, dtype=torch.float32).reshape(8, 8) / 64
+    angles.fill_(100)
+    radon.angles.fill_(200)
+    expected = torch.stack([radon.forward_angle(image, angle.item()) for angle in expected_angles])
+    torch.testing.assert_close(radon.angles, expected_angles, atol=0, rtol=0)
+    torch.testing.assert_close(radon.forward(image), expected, atol=0, rtol=0)
+
+
 def test_geometry_cannot_diverge_from_cached_rays(radon):
     with pytest.raises(FrozenInstanceError):
         radon.geometry.source_distance = 10

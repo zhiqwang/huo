@@ -38,27 +38,31 @@ class RadonFanbeam:
         det_count: int,
         det_spacing: float,
         ray_sampling: int = 2,
-    ):
+    ) -> None:
         self._geometry = FanbeamGeometry(
             resolution, source_distance, det_distance, det_count, det_spacing, ray_sampling
         )
         self._angles = torch.as_tensor(angles, dtype=torch.float32, device="cpu").clone()
         if self._angles.ndim != 1 or self._angles.numel() == 0 or not torch.isfinite(self._angles).all():
             raise ValueError("angles must be a nonempty finite 1-D sequence in radians")
+        # Keep the same float32-rounded angles without scalar tensor conversion in each sweep.
+        self._angle_values = tuple(self._angles.tolist())
+        self._image_shape = (self.geometry.resolution,) * 2
+        self._sinogram_shape = (len(self._angle_values), self.geometry.det_count)
         self._ray_x, self._ray_y = compute_ray_coordinates(self.geometry)
 
     @property
-    def geometry(self):
+    def geometry(self) -> FanbeamGeometry:
         """The immutable scanner configuration."""
         return self._geometry
 
     @property
-    def angles(self):
+    def angles(self) -> Tensor:
         """Projection angles in radians, in sinogram row order."""
         return self._angles.clone()
 
     @staticmethod
-    def _check_tensor(value, shape, name):
+    def _check_tensor(value: Tensor, shape: tuple[int, ...], name: str) -> None:
         if not isinstance(value, Tensor) or value.device.type != "cpu" or value.dtype != torch.float32:
             raise ValueError(f"{name} must be a CPU torch.float32 tensor")
         if tuple(value.shape) != shape:
@@ -68,7 +72,7 @@ class RadonFanbeam:
 
     def forward_angle(self, image: Tensor, angle: float) -> Tensor:
         """Project an image [resolution, resolution] at one angle in radians."""
-        self._check_tensor(image, (self.geometry.resolution,) * 2, "image")
+        self._check_tensor(image, self._image_shape, "image")
         if not math.isfinite(angle):
             raise ValueError("angle must be finite (in radians)")
         return forward_angle(image, self._ray_x, self._ray_y, angle, self.geometry)
@@ -82,11 +86,11 @@ class RadonFanbeam:
 
     def forward(self, image: Tensor) -> Tensor:
         """Project an image to a sinogram [len(angles), det_count]."""
-        self._check_tensor(image, (self.geometry.resolution,) * 2, "image")
+        self._check_tensor(image, self._image_shape, "image")
         return torch.stack(
             [
-                forward_angle(image, self._ray_x, self._ray_y, angle.item(), self.geometry)
-                for angle in self._angles
+                forward_angle(image, self._ray_x, self._ray_y, angle, self.geometry)
+                for angle in self._angle_values
             ]
         )
 
@@ -96,10 +100,10 @@ class RadonFanbeam:
         This B operator has no fan-beam weighting and is not the discrete
         transpose of forward(). See the residual-backprojection proof.
         """
-        self._check_tensor(sinogram, (len(self._angles), self.geometry.det_count), "sinogram")
-        image = torch.zeros((self.geometry.resolution,) * 2, dtype=torch.float32)
-        for angle, projection in zip(self._angles, sinogram):
-            image += backprojection_angle(projection, angle.item(), self.geometry)
+        self._check_tensor(sinogram, self._sinogram_shape, "sinogram")
+        image = sinogram.new_zeros(self._image_shape)
+        for angle, projection in zip(self._angle_values, sinogram):
+            image += backprojection_angle(projection, angle, self.geometry)
         return image
 
     def art(self, sinogram: Tensor) -> Tensor:
@@ -109,12 +113,16 @@ class RadonFanbeam:
         random order. The correction is divided by the ray-window length,
         which is ``resolution`` in pixel units.
         """
-        self._check_tensor(sinogram, (len(self._angles), self.geometry.det_count), "sinogram")
-        image = torch.zeros((self.geometry.resolution,) * 2, dtype=torch.float32)
-        for index in torch.randperm(len(self._angles)):
-            angle = self._angles[index].item()
+        self._check_tensor(sinogram, self._sinogram_shape, "sinogram")
+        image = sinogram.new_zeros(self._image_shape)
+        track_grad = torch.is_grad_enabled() and sinogram.requires_grad
+        for index in torch.randperm(len(self._angle_values)).tolist():
+            angle = self._angle_values[index]
             predicted = forward_angle(image, self._ray_x, self._ray_y, angle, self.geometry)
             residual = (sinogram[index] - predicted) / self.geometry.resolution
-            image += backprojection_angle(residual, angle, self.geometry)
-            image = image.clamp(min=0)
+            if track_grad:
+                # grid_sample saves the previous image for backward.
+                image = (image + backprojection_angle(residual, angle, self.geometry)).clamp_min(0)
+            else:
+                image.add_(backprojection_angle(residual, angle, self.geometry)).clamp_min_(0)
         return image
