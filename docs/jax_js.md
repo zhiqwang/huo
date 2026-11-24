@@ -20,7 +20,7 @@ sequence from `packages/`, using Node's ES module mode or an ES module file.
 The [browser demo](demo/index.md) supplies an import map for browser use.
 
 ```javascript
-import { init, jit, numpy as np, tree, valueAndGrad, jvp } from "@jax-js/jax";
+import { init, jacrev, jit, numpy as np, tree, valueAndGrad, jvp } from "@jax-js/jax";
 import { FanbeamGeometry, FanbeamProjector, project, reconstruct } from "./dist/src/index.js";
 
 await init("wasm");
@@ -81,11 +81,19 @@ products compose with the projector. Neural-network parameters can be the
 inputs to a loss that constructs an image before projection. No custom JVP or
 hand-written transpose is used.
 
-The pinned jax-js 0.1.27 helper APIs differ from Python: `jacfwd` requires vector
-inputs and returns input-major axes, while `jacrev` does not handle this
-rectangular image-to-sinogram map correctly. For explicit Jacobians, map JVPs
-over image basis vectors or VJPs over sinogram basis vectors. The regression
-suite checks those compositions and HVPs against the sampled matrix.
+With jax-js 0.1.28, `jacfwd` and `jacrev` support rectangular projections and
+return Jacobian axes in `[view, detector, pixel]` order. Both helpers take a
+vector input. Flatten the image and reshape it inside the differentiated
+function.
+
+```javascript
+const oneView = new FanbeamProjector(geometry, [angles[0]]);
+const projectPixels = (flatImage) => oneView.forward(flatImage.reshape([n, n]));
+const jacobian = jacrev(projectPixels)(initial.ref.reshape([n * n]));
+console.log(jacobian.shape); // [1, 40, 1024]
+jacobian.dispose();
+oneView.dispose();
+```
 
 ## Array ownership
 
@@ -187,9 +195,10 @@ phantom.dispose(); measured.dispose(); initial.dispose();
 forward.dispose(); lossAndGrad.dispose(); projector.dispose();
 ```
 
-`npm test` checks geometry, boundaries, sampled-matrix derivatives, native and
-mapped batches, chunk/full-loss Adam parity, snapshots, cancellation and
-reference counts. Python's `tests/test_cross_language.py` also compares forward
-projection, loss, gradients, JVP, HVP and reconstruction against PyTorch and
-Python JAX, including signed batches, repeated angles, odd/even images and
-different ray-sampling multipliers.
+`npm test` checks geometry, boundaries, sampled-matrix derivatives including
+explicit Jacobians, native and mapped batches, chunk/full-loss Adam parity,
+snapshots, cancellation and reference counts. Python's
+`tests/test_cross_language.py` also compares forward projection, loss,
+gradients, JVP, HVP and reconstruction against PyTorch and Python JAX, including
+signed batches, repeated angles, odd/even images and different ray-sampling
+multipliers.
