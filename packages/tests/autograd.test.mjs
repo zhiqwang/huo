@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { init, numpy as np, jit, grad, jvp, vjp, vmap, tree } from "@jax-js/jax";
+import { init, numpy as np, jit, grad, jacfwd, jacrev, jvp, vjp, vmap, tree } from "@jax-js/jax";
 import { FanbeamGeometry, FanbeamProjector, project } from "../dist/src/index.js";
 import { close, scanner } from "./helpers.mjs";
 
@@ -33,6 +33,12 @@ test("native AD agrees with the sampled matrix", async () => {
     close(await g.data(), transpose(apply(xData)), tolerance);
     close(await hvp.data(), transpose(apply(dData)), tolerance);
     const matrix = Array.from({ length: rows * 9 }, (_, i) => columns[(i % 9) * rows + Math.floor(i / 9)]);
+    const forwardPixels = (pixels) => forward(pixels.reshape([3, 3]));
+    for (const differentiate of [jacfwd, jacrev]) {
+      const jacobian = differentiate(forwardPixels)(x.ref.reshape([9]));
+      assert.deepEqual(jacobian.shape, [p.views, p.geometry.det_count, 9]);
+      close(await jacobian.data(), matrix, tolerance);
+    }
     const [value, pullback] = vjp(forward, [x.ref]);
     value.dispose();
     try {

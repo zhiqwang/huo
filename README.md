@@ -6,7 +6,7 @@ measurements, and an optimizer updates the image or a neural network.
 
 ```text
 image → FanbeamProjector → predicted sinogram → loss against measured sinogram
-  ↑                                              │
+  ↑                                               │
   └──────── parameter update ← automatic gradient ┘
 ```
 
