@@ -139,6 +139,11 @@ The [proof article](docs/backward_propagation_proof.md) preserves mathematical
 analysis of the former ART-style residual-backfill algorithm. Current Python
 and browser reconstruction both use loss minimization.
 
+From a source checkout, [the ART reference](benchmarks/art.py) can run the
+historical updates with the current PyTorch projector. Call
+`reconstruct_art(projector, measured, sweeps=3, angle_order=order)` with a fixed
+permutation of the view indices to compare against Adam on the same data.
+
 ## Checks
 
 ```bash

@@ -72,6 +72,9 @@ Source = "https://github.com/zhiqwang/huo/"
 [tool.hatch.build.targets.wheel]
 packages = ["huo"]
 
+[tool.hatch.build.targets.sdist]
+exclude = ["/benchmarks/art.py"]
+
 [tool.usort]
 first_party_detection = false
 

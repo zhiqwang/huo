@@ -234,6 +234,5 @@ python -m http.server 8080 --bind 0.0.0.0 --directory packages/dist
 
 Open `http://localhost:8080/demo/`. Use the
 [Sphinx preview](publishing.md#local-preview-and-strict-build) for the complete
-site and themed demo. The demo loads jax-js from `esm.sh` and requires access
-to that CDN. Sampling, derivatives and optimizer updates execute through
-jax-js on WebGPU when available, or WASM otherwise.
+site and themed demo. The build includes jax-js and Optax. Sampling, derivatives
+and optimizer updates run on WebGPU when available and WASM otherwise.

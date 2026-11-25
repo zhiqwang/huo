@@ -97,13 +97,50 @@ function renderToCanvas(
   ctx.putImageData(imageData, 0, 0);
 }
 
+type ImageErrorSample = { step: number; percent: number };
+
+function renderImageError(
+  canvas: HTMLCanvasElement,
+  samples: ImageErrorSample[],
+  steps: number,
+  maxError: number,
+): void {
+  const ctx = canvas.getContext("2d")!;
+  const { width, height } = canvas;
+  ctx.clearRect(0, 0, width, height);
+  if (samples.length === 0) return;
+
+  const padding = 4;
+  ctx.strokeStyle = getComputedStyle(canvas).color;
+  ctx.fillStyle = ctx.strokeStyle;
+  ctx.lineWidth = 2;
+  ctx.lineJoin = "round";
+  ctx.beginPath();
+  let x = 0;
+  let y = 0;
+  for (const { step, percent } of samples) {
+    x = padding + (width - 2 * padding) * (step / steps);
+    y = padding + (height - 2 * padding) * (1 - percent / maxError);
+    ctx.lineTo(x, y);
+  }
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.arc(x, y, 3, 0, 2 * Math.PI);
+  ctx.fill();
+}
+
 async function main(): Promise<void> {
   const status = document.getElementById("status")!;
   const progress = document.getElementById("progress") as HTMLProgressElement;
   const startBtn = document.getElementById("startBtn") as HTMLButtonElement;
   const stopBtn = document.getElementById("stopBtn") as HTMLButtonElement;
+  const iterations = document.getElementById("iterations") as HTMLSelectElement;
   const delaySlider = document.getElementById("delaySlider") as HTMLInputElement;
   const delayValue = document.getElementById("delayValue")!;
+  const imageError = document.getElementById("imageError") as HTMLOutputElement;
+  const imageErrorChart = document.getElementById("imageErrorChart") as HTMLCanvasElement;
+  const imageErrorMax = document.getElementById("imageErrorMax")!;
+  const imageErrorSteps = document.getElementById("imageErrorSteps")!;
   delaySlider.addEventListener("input", () => {
     delayValue.textContent = `${delaySlider.value} ms`;
   });
@@ -113,6 +150,7 @@ async function main(): Promise<void> {
   const n = geometry.resolution;
   const phantom = createPhantom(n);
   const phantomMax = Math.max(...phantom);
+  const phantomEnergy = phantom.reduce((sum, pixel) => sum + pixel ** 2, 0);
   renderToCanvas("phantom", phantom, n, n);
   status.textContent = "Ready — click Start";
   startBtn.disabled = false;
@@ -122,6 +160,10 @@ async function main(): Promise<void> {
   startBtn.addEventListener("click", async () => {
     startBtn.disabled = true;
     stopBtn.disabled = false;
+    iterations.disabled = true;
+    const steps = Number(iterations.value);
+    const errorSamples: ImageErrorSample[] = [];
+    let maxError = 100;
     controller = new AbortController();
     const signal = controller.signal;
     const projector = new FanbeamProjector(geometry, angles);
@@ -130,6 +172,10 @@ async function main(): Promise<void> {
     );
     let measured: np.Array | undefined;
     progress.value = 0;
+    imageError.value = "—";
+    imageErrorMax.textContent = `${maxError}%`;
+    imageErrorSteps.textContent = `Step ${steps}`;
+    renderImageError(imageErrorChart, errorSamples, steps, maxError);
     renderToCanvas("reconstruction", new Float32Array(n * n), n, n);
     try {
       status.textContent = "Computing forward projection…";
@@ -145,16 +191,23 @@ async function main(): Promise<void> {
       progress.value = 10;
       let final_loss = 0;
       const result = await reconstruct(projector, measured, {
-        steps: 120,
+        steps,
         lr: 0.03,
         view_chunk_size: 8,
         report_every: 5,
         signal,
-        on_progress: async ({ image, step, steps, loss }) => {
+        on_progress: async ({ image, step, loss }) => {
           final_loss = loss;
+          const squaredError = image.reduce((sum, pixel, i) => sum + (pixel - phantom[i]) ** 2, 0);
+          const percent = 100 * Math.sqrt(squaredError / phantomEnergy);
+          errorSamples.push({ step, percent });
+          maxError = Math.max(maxError, Math.ceil(percent / 10) * 10);
+          imageError.value = `${percent.toFixed(1)}%`;
+          imageErrorMax.textContent = `${maxError}%`;
+          renderImageError(imageErrorChart, errorSamples, steps, maxError);
           renderToCanvas("reconstruction", image, n, n, phantomMax);
           progress.value = 10 + (90 * step) / steps;
-          status.textContent = `Adam step ${step} / ${steps} · loss ${loss.toPrecision(4)}`;
+          status.textContent = `Adam step ${step} / ${steps} · projection loss ${loss.toPrecision(4)}`;
           await new Promise<void>((resolve) => setTimeout(resolve, Number(delaySlider.value)));
         },
       });
@@ -173,6 +226,7 @@ async function main(): Promise<void> {
       controller = undefined;
       startBtn.disabled = false;
       stopBtn.disabled = true;
+      iterations.disabled = false;
     }
   });
 }

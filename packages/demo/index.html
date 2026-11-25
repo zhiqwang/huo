@@ -24,10 +24,20 @@
         <span id="status" role="status">Loading…</span>
       </div>
     </div>
-    <div class="huo-demo-delay">
-      <label for="delaySlider">Frame delay</label>
-      <input id="delaySlider" type="range" min="0" max="200" value="20" step="5" aria-describedby="delayValue" />
-      <output id="delayValue" for="delaySlider">20 ms</output>
+    <div class="huo-demo-options">
+      <div>
+        <label for="iterations">Adam updates</label>
+        <select id="iterations">
+          <option value="120">120</option>
+          <option value="300" selected>300</option>
+          <option value="600">600</option>
+        </select>
+      </div>
+      <div class="huo-demo-delay">
+        <label for="delaySlider">Frame delay</label>
+        <input id="delaySlider" type="range" min="0" max="200" value="20" step="5" aria-describedby="delayValue" />
+        <output id="delayValue" for="delaySlider">20 ms</output>
+      </div>
     </div>
   </div>
   <div class="huo-demo-panels">
@@ -50,14 +60,34 @@
       </div>
     </figure>
   </div>
+  <section class="huo-demo-panel huo-demo-error" aria-labelledby="imageErrorTitle">
+    <div class="huo-demo-error-summary">
+      <div>
+        <strong id="imageErrorTitle">Image error</strong>
+        <span>Relative L2 vs. original phantom</span>
+      </div>
+      <output id="imageError" aria-label="Current relative L2 image error" aria-live="off">—</output>
+    </div>
+    <div class="huo-demo-error-chart">
+      <div class="huo-demo-error-scale" aria-hidden="true">
+        <span id="imageErrorMax">100%</span>
+        <span>0%</span>
+      </div>
+      <canvas id="imageErrorChart" width="720" height="96" role="img" aria-label="Relative L2 image error by Adam step"></canvas>
+      <div class="huo-demo-error-steps" aria-hidden="true">
+        <span>Step 0</span>
+        <span id="imageErrorSteps">Step 300</span>
+      </div>
+    </div>
+  </section>
   <noscript>Enable JavaScript to run the interactive reconstruction.</noscript>
 </div>
 
 <script type="importmap">
   {
     "imports": {
-      "@jax-js/jax": "https://esm.sh/@jax-js/jax@0.1.28",
-      "@jax-js/optax": "https://esm.sh/@jax-js/optax@0.1.3?external=@jax-js/jax"
+      "@jax-js/jax": "../vendor/jax/index.js",
+      "@jax-js/optax": "../vendor/optax/index.js"
     }
   }
 </script>
