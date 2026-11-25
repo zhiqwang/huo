@@ -53,7 +53,8 @@
 }
 
 .huo-demo button:focus-visible,
-.huo-demo input:focus-visible {
+.huo-demo input:focus-visible,
+.huo-demo select:focus-visible {
   outline: 2px solid var(--demo-accent);
   outline-offset: 3px;
 }
@@ -95,17 +96,39 @@
   overflow-wrap: anywhere;
 }
 
-.huo-demo-delay {
+.huo-demo-options,
+.huo-demo-options > div {
   display: flex;
   align-items: center;
   flex-wrap: wrap;
   gap: 0.5rem 0.75rem;
+}
+
+.huo-demo-options {
+  gap: 0.75rem 1.5rem;
   font-size: 0.875rem;
 }
 
-.huo-demo-delay label {
+.huo-demo-options label {
   margin: 0;
   font-weight: 600;
+}
+
+.huo-demo-options select {
+  padding: 0.25rem 0.5rem;
+  border: 1px solid var(--demo-border);
+  border-radius: 0.25rem;
+  background: var(--demo-background);
+  color: var(--demo-text);
+  font: inherit;
+}
+
+.huo-demo-options select:disabled {
+  opacity: 0.65;
+}
+
+.huo-demo-delay {
+  flex: 1 1 16rem;
 }
 
 .huo-demo-delay input {
@@ -164,6 +187,65 @@
   display: block;
   width: 100%;
   height: auto;
+}
+
+.huo-demo-error {
+  margin-top: 1rem;
+}
+
+.huo-demo-error-summary {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 0.25rem 1rem;
+  font-size: 0.875rem;
+}
+
+.huo-demo-error-summary span {
+  margin-inline-start: 0.5rem;
+}
+
+.huo-demo-error-summary output {
+  font-size: 1rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.huo-demo-error-summary span,
+.huo-demo-error-chart {
+  color: var(--demo-muted);
+  font-size: 0.75rem;
+}
+
+.huo-demo-error-chart {
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr);
+  gap: 0.25rem 0.5rem;
+  margin-top: 0.5rem;
+}
+
+.huo-demo-error-chart canvas {
+  height: 5rem;
+  border-inline-start: 1px solid var(--demo-border);
+  border-block-end: 1px solid var(--demo-border);
+  color: var(--demo-accent);
+}
+
+.huo-demo-error-scale,
+.huo-demo-error-steps {
+  display: flex;
+  justify-content: space-between;
+}
+
+.huo-demo-error-scale {
+  flex-direction: column;
+  align-items: end;
+  line-height: 1;
+}
+
+.huo-demo-error-steps {
+  grid-column: 2;
 }
 
 @media (max-width: 767px) {

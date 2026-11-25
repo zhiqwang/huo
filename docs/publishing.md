@@ -56,7 +56,9 @@ work under the `/huo/` GitHub Pages prefix. Keep the standalone HTML out of
 the build output so it does not overwrite Sphinx's `demo/index.html`.
 The ordinary `build` also copies the standalone HTML/CSS into `dist/demo/`.
 `build:docs` removes that HTML so Sphinx retains ownership of `demo/index.html`.
-The demo loads jax-js and Optax from `esm.sh`; visitors need access to that CDN.
+Both builds copy the locked jax-js and Optax ESM modules into `dist/vendor/`.
+The demo's import map points to those packages on the site. The jax-js entry
+point and its WebGPU backend load their shared module from the same URL.
 
 ## Adding articles and mathematical notation
 
