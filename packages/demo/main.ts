@@ -1,6 +1,7 @@
 // Native autodiff remains in the operator; asynchronous rendering lives here.
 import { defaultDevice, init, jit, numpy as np, tree } from "@jax-js/jax";
 import { FanbeamGeometry, FanbeamProjector, project, reconstruct } from "../src/index.js";
+import { createImageMetrics } from "./metrics.js";
 
 const geometry = new FanbeamGeometry({
   resolution: 64,
@@ -135,9 +136,13 @@ async function main(): Promise<void> {
   const startBtn = document.getElementById("startBtn") as HTMLButtonElement;
   const stopBtn = document.getElementById("stopBtn") as HTMLButtonElement;
   const iterations = document.getElementById("iterations") as HTMLSelectElement;
+  const tvWeight = document.getElementById("tvWeight") as HTMLSelectElement;
   const delaySlider = document.getElementById("delaySlider") as HTMLInputElement;
   const delayValue = document.getElementById("delayValue")!;
   const imageError = document.getElementById("imageError") as HTMLOutputElement;
+  const imageSsim = document.getElementById("imageSsim") as HTMLOutputElement;
+  const imagePsnr = document.getElementById("imagePsnr") as HTMLOutputElement;
+  const imageVariation = document.getElementById("imageVariation") as HTMLOutputElement;
   const imageErrorChart = document.getElementById("imageErrorChart") as HTMLCanvasElement;
   const imageErrorMax = document.getElementById("imageErrorMax")!;
   const imageErrorSteps = document.getElementById("imageErrorSteps")!;
@@ -150,7 +155,7 @@ async function main(): Promise<void> {
   const n = geometry.resolution;
   const phantom = createPhantom(n);
   const phantomMax = Math.max(...phantom);
-  const phantomEnergy = phantom.reduce((sum, pixel) => sum + pixel ** 2, 0);
+  const measure = createImageMetrics(phantom, n);
   renderToCanvas("phantom", phantom, n, n);
   status.textContent = "Ready — click Start";
   startBtn.disabled = false;
@@ -161,7 +166,9 @@ async function main(): Promise<void> {
     startBtn.disabled = true;
     stopBtn.disabled = false;
     iterations.disabled = true;
+    tvWeight.disabled = true;
     const steps = Number(iterations.value);
+    const tv_weight = Number(tvWeight.value);
     const errorSamples: ImageErrorSample[] = [];
     let maxError = 100;
     controller = new AbortController();
@@ -172,7 +179,7 @@ async function main(): Promise<void> {
     );
     let measured: np.Array | undefined;
     progress.value = 0;
-    imageError.value = "—";
+    for (const output of [imageError, imageSsim, imagePsnr, imageVariation]) output.value = "—";
     imageErrorMax.textContent = `${maxError}%`;
     imageErrorSteps.textContent = `Step ${steps}`;
     renderImageError(imageErrorChart, errorSamples, steps, maxError);
@@ -189,30 +196,34 @@ async function main(): Promise<void> {
         angles.length,
       );
       progress.value = 10;
-      let final_loss = 0;
+      let losses = "";
       const result = await reconstruct(projector, measured, {
         steps,
         lr: 0.03,
+        tv_weight,
         view_chunk_size: 8,
         report_every: 5,
         signal,
-        on_progress: async ({ image, step, loss }) => {
-          final_loss = loss;
-          const squaredError = image.reduce((sum, pixel, i) => sum + (pixel - phantom[i]) ** 2, 0);
-          const percent = 100 * Math.sqrt(squaredError / phantomEnergy);
+        on_progress: async ({ image, step, loss, objective }) => {
+          losses = `projection loss ${loss.toPrecision(4)}`;
+          if (tv_weight > 0) losses += ` · objective ${objective.toPrecision(4)}`;
+          const { relativeL2: percent, psnr, ssim, flatVariation } = measure(image);
           errorSamples.push({ step, percent });
           maxError = Math.max(maxError, Math.ceil(percent / 10) * 10);
           imageError.value = `${percent.toFixed(1)}%`;
+          imageSsim.value = ssim.toFixed(4);
+          imagePsnr.value = `${psnr === Infinity ? "∞" : psnr.toFixed(2)} dB`;
+          imageVariation.value = flatVariation === undefined ? "—" : `${flatVariation.toFixed(2)}%`;
           imageErrorMax.textContent = `${maxError}%`;
           renderImageError(imageErrorChart, errorSamples, steps, maxError);
           renderToCanvas("reconstruction", image, n, n, phantomMax);
           progress.value = 10 + (90 * step) / steps;
-          status.textContent = `Adam step ${step} / ${steps} · projection loss ${loss.toPrecision(4)}`;
+          status.textContent = `Adam step ${step} / ${steps} · ${losses}`;
           await new Promise<void>((resolve) => setTimeout(resolve, Number(delaySlider.value)));
         },
       });
       result.dispose();
-      status.textContent = `Done · projection loss ${final_loss.toPrecision(4)}`;
+      status.textContent = `Done · ${losses}`;
     } catch (error) {
       if (signal.aborted) status.textContent = "Stopped — click Start to run again";
       else {
@@ -227,6 +238,7 @@ async function main(): Promise<void> {
       startBtn.disabled = false;
       stopBtn.disabled = true;
       iterations.disabled = false;
+      tvWeight.disabled = false;
     }
   });
 }

@@ -107,7 +107,7 @@ custom derivative rule is used by the production backend.
 ## reconstruct
 
 `reconstruct(projector, measured, *, steps=300, lr=1e-2,
-initial_image=None, nonnegative=True)` performs Adam image optimization in
+initial_image=None, nonnegative=True, tv_weight=0)` performs Adam image optimization in
 either `huo.torch` or `huo.jax`, using that backend's projector and arrays.
 
 | Argument or result | Contract |
@@ -118,17 +118,21 @@ either `huo.torch` or `huo.jax`, using that backend's projector and arrays.
 | `lr` | Positive finite Adam learning rate. |
 | `initial_image` | Optional array `[..., N, N]` with exactly the measurement batch dimensions. Defaults to zeros. |
 | `nonnegative` | Clamp the initial image and each updated image at zero when true. |
+| `tv_weight` | Nonnegative finite weight for anisotropic total variation. The default is `0`. |
 | Return value | Backend-native image `[..., N, N]`, with gradients through the solver stopped. |
 
-The objective is half the mean squared projection residual, averaged over all
-batch, angle, and detector entries. The helper copies measurements and the
+The data term is half the mean squared projection residual, averaged over all
+batch, angle, and detector entries. The TV term is the sum of the mean absolute
+horizontal and vertical pixel differences, each averaged over all images and
+valid neighbours. The objective adds `tv_weight` times TV to the data term.
+The helper copies measurements and the
 initial image in PyTorch, and treats JAX arrays as immutable. It does not modify
 caller-owned arrays, gradients, scanner state, or random-number generators.
 The PyTorch helper enables gradients locally even inside outer `no_grad` or
 `inference_mode` contexts.
 
 The JAX helper JIT-compiles and caches the full Optax/`lax.scan` loop. Its
-`steps`, `lr`, and `nonnegative` settings must be static when called under an
+`steps`, `lr`, `nonnegative`, and `tv_weight` settings must be static when called under an
 outer JIT. Eager calls check measurements, the initial image, and the final
 result for finite values; transformed calls use the same opt-in checkify
 contract as the projector. JAX controls device placement.
@@ -144,7 +148,7 @@ and [JAX guide](jax.md) show custom optimization workflows.
 arguments are the measurement file, `--angles`, `--output`, `--resolution`,
 `--source-distance`, `--det-distance`, and `--det-spacing`. Detector count is
 inferred from the final measurement dimension. Optional arguments are
-`--ray-sampling`, `--steps`, `--lr`, `--allow-negative`, and `--backend torch|jax`
+`--ray-sampling`, `--steps`, `--lr`, `--tv-weight`, `--allow-negative`, and `--backend torch|jax`
 (default `torch`). `--method scan|vmap` selects JAX angle traversal and is
 rejected for the PyTorch backend. Only the selected framework is imported;
 missing extras produce an installation hint instead of backend fallback.

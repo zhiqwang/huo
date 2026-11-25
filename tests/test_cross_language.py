@@ -29,8 +29,8 @@ READY = (
 
 
 @pytest.mark.skipif(not READY, reason="Build the TypeScript package and install Node to check parity")
-@pytest.mark.parametrize("resolution", [5, 6, 31, 32])
-def test_same_geometry_derivatives_and_reconstruction(resolution):
+@pytest.mark.parametrize("resolution,tv_weight", [(5, 0), (6, 0), (31, 0), (32, 0), (6, 0.5), (31, 0.5)])
+def test_same_geometry_derivatives_and_reconstruction(resolution, tv_weight):
     geometry = FanbeamGeometry(
         resolution, 4 * resolution, 2 * resolution, 19, 1.7, ray_sampling=3 if resolution % 2 else 2
     )
@@ -40,7 +40,13 @@ def test_same_geometry_derivatives_and_reconstruction(resolution):
     image = torch.randn(shape, generator=generator)
     direction = torch.randn(shape, generator=generator)
     measured = torch.randn(2, 5, 19, generator=generator)
-    initial = torch.linspace(-0.1, 0.1, image.numel()).reshape(shape)
+    if tv_weight:
+        # Keep the parity comparison away from the non-smooth point of TV.
+        axis = torch.arange(resolution)
+        checkerboard = ((axis[:, None] + axis[None, :]) % 2).float() * 4 - 2
+        initial = checkerboard.expand(shape).clone()
+    else:
+        initial = torch.linspace(-0.1, 0.1, image.numel()).reshape(shape)
     objective = lambda x: 0.5 * (projector(x) - measured).square().mean()
     expected = {
         "forward": projector(image),
@@ -49,7 +55,13 @@ def test_same_geometry_derivatives_and_reconstruction(resolution):
         "jvp": torch.func.jvp(projector, (image,), (direction,))[1],
         "hvp": torch.func.jvp(torch.func.grad(objective), (image,), (direction,))[1],
         "reconstructed": reconstruct(
-            projector, measured, steps=20, lr=0.03, initial_image=initial, nonnegative=False
+            projector,
+            measured,
+            steps=20,
+            lr=0.03,
+            initial_image=initial,
+            nonnegative=False,
+            tv_weight=tv_weight,
         ),
     }
     payload = dict(
@@ -58,6 +70,7 @@ def test_same_geometry_derivatives_and_reconstruction(resolution):
         direction=direction.flatten().tolist(),
         measured=measured.flatten().tolist(),
         initial=initial.flatten().tolist(),
+        tv_weight=tv_weight,
         image_shape=list(shape),
         measured_shape=list(measured.shape),
     )
@@ -96,6 +109,7 @@ def test_same_geometry_derivatives_and_reconstruction(resolution):
                 lr=0.03,
                 initial_image=jnp.asarray(initial.numpy()),
                 nonnegative=False,
+                tv_weight=tv_weight,
             ),
         }
         for name, value in references.items():

@@ -202,17 +202,31 @@
   font-size: 0.875rem;
 }
 
-.huo-demo-error-summary span {
-  margin-inline-start: 0.5rem;
+.huo-demo dl.huo-demo-quality {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(7.5rem, 1fr));
+  gap: 0.5rem;
+  margin: 0.75rem 0;
 }
 
-.huo-demo-error-summary output {
+.huo-demo-quality > div {
+  padding: 0.5rem 0.625rem;
+  border-radius: 0.25rem;
+  background: var(--demo-surface);
+}
+
+.huo-demo dl.huo-demo-quality > div > dd {
+  margin: 0;
+}
+
+.huo-demo-quality output {
   font-size: 1rem;
   font-weight: 700;
   font-variant-numeric: tabular-nums;
 }
 
 .huo-demo-error-summary span,
+.huo-demo-quality dt,
 .huo-demo-error-chart {
   color: var(--demo-muted);
   font-size: 0.75rem;

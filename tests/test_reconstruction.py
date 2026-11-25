@@ -35,19 +35,24 @@ def test_loss_decreases_and_inputs_are_preserved(problem):
         torch.testing.assert_close(buffer, state[name], atol=0, rtol=0)
 
 
-def test_reconstruct_matches_an_explicit_adam_loop(problem):
+@pytest.mark.parametrize("tv_weight", [0.0, 0.5])
+def test_reconstruct_matches_an_explicit_adam_loop(problem, tv_weight):
     projector, measured = problem
     expected = torch.nn.Parameter(torch.zeros(8, 8))
     optimizer = torch.optim.Adam([expected], lr=0.03)
     for _ in range(20):
         optimizer.zero_grad(set_to_none=True)
         loss = 0.5 * (projector(expected) - measured).square().mean()
+        if tv_weight:
+            horizontal = (expected[:, 1:] - expected[:, :-1]).abs().mean()
+            vertical = (expected[1:, :] - expected[:-1, :]).abs().mean()
+            loss = loss + tv_weight * (horizontal + vertical)
         loss.backward()
         optimizer.step()
         with torch.no_grad():
             expected.clamp_min_(0)
-    actual = reconstruct(projector, measured, steps=20, lr=0.03)
-    torch.testing.assert_close(actual, expected, atol=0, rtol=0)
+    actual = reconstruct(projector, measured, steps=20, lr=0.03, tv_weight=tv_weight)
+    torch.testing.assert_close(actual, expected, atol=1e-7 if tv_weight else 0, rtol=0)
 
 
 @pytest.mark.parametrize("mode", [torch.enable_grad, torch.no_grad, torch.inference_mode])
@@ -76,6 +81,9 @@ def test_batch_reconstruction_and_unconstrained_values(problem):
         {"steps": 1.2},
         {"lr": 0},
         {"lr": float("nan")},
+        {"tv_weight": -0.5},
+        {"tv_weight": float("inf")},
+        {"tv_weight": True},
         {"initial_image": torch.zeros(2, 8, 8)},
     ],
 )
@@ -106,6 +114,8 @@ def test_cli_reconstructs_saved_measurements(problem, tmp_path, capsys):
             "40",
             "--lr",
             "0.03",
+            "--tv-weight",
+            "0.5",
             "--output",
             str(output),
         ]
@@ -113,4 +123,5 @@ def test_cli_reconstructs_saved_measurements(problem, tmp_path, capsys):
     result = torch.from_numpy(np.load(output))
     assert result.shape == (8, 8) and (result >= 0).all()
     assert (projector(result) - measured).square().mean() < measured.square().mean()
+    torch.testing.assert_close(result, reconstruct(projector, measured, steps=40, lr=0.03, tv_weight=0.5))
     assert "loss:" in capsys.readouterr().out

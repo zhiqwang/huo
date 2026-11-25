@@ -8,6 +8,8 @@ export interface ReconstructionProgress {
   steps: number;
   /** Half mean squared residual evaluated at this snapshot, after the update. */
   loss: number;
+  /** Projection loss plus the weighted total variation penalty at this snapshot. */
+  objective: number;
   image: Float32Array;
   shape: number[];
 }
@@ -17,6 +19,7 @@ export interface ReconstructionOptions {
   lr?: number;
   initial_image?: np.Array;
   nonnegative?: boolean;
+  tv_weight?: number;
   view_chunk_size?: number;
   report_every?: number;
   on_progress?: (progress: ReconstructionProgress) => void | Promise<void>;
@@ -25,7 +28,13 @@ export interface ReconstructionOptions {
 
 type Chunk = { state: ProjectorState; target: np.Array; weight: number };
 
-/** Adam on the complete mean projection loss, with memory bounded by angle chunks.
+function meanAbsoluteDifference(image: np.Array, axis: number): np.Array {
+  const difference = np.diff(image, 1, axis);
+  // Match PyTorch's zero subgradient for equal neighbouring pixels.
+  return np.where(difference.ref.equal(0), 0, np.abs(difference)).mean();
+}
+
+/** Adam on the complete mean projection loss with optional total variation.
  *
  * Borrows projector, measured, and initial_image; returns a newly owned array.
  * Native AD supplies each chunk's gradient. Weight and accumulate ALL chunks
@@ -44,6 +53,7 @@ export async function reconstruct(
     lr = 0.01,
     initial_image,
     nonnegative = true,
+    tv_weight = 0,
     view_chunk_size = 8,
     report_every = 10,
     on_progress,
@@ -53,6 +63,8 @@ export async function reconstruct(
     positive_integer(value, name);
   if (!Number.isFinite(lr) || lr <= 0) throw new RangeError("lr must be positive and finite");
   if (typeof nonnegative !== "boolean") throw new TypeError("nonnegative must be a boolean");
+  if (!Number.isFinite(tv_weight) || tv_weight < 0)
+    throw new RangeError("tv_weight must be nonnegative and finite");
   if (on_progress !== undefined && typeof on_progress !== "function")
     throw new TypeError("on_progress must be a function");
   signal?.throwIfAborted();
@@ -71,16 +83,21 @@ export async function reconstruct(
   let optimizer_state: OptState | undefined;
   let gradient: np.Array | undefined;
   const chunks: Chunk[] = [];
-  const objective = (x: np.Array, state: ProjectorState, y: np.Array) =>
+  const projectionLoss = (x: np.Array, state: ProjectorState, y: np.Array) =>
     np
       .square(project(x, state, ray_step).sub(y))
       .mean()
       .mul(0.5);
-  const evaluate = jit(objective);
-  const differentiate = jit(grad(objective));
+  const evaluate = jit(projectionLoss);
+  const differentiate = jit(grad(projectionLoss));
+  const tvPenalty = (x: np.Array) =>
+    meanAbsoluteDifference(x.ref, -1).add(meanAbsoluteDifference(x, -2)).mul(tv_weight);
+  const evaluateTv = tv_weight > 0 ? jit(tvPenalty) : undefined;
+  const differentiateTv = tv_weight > 0 ? grad(tvPenalty) : undefined;
   const optimizer = adam(lr, { b1: 0.9, b2: 0.999, eps: 1e-8, epsRoot: 0 });
   const update = jit((x: np.Array, g: np.Array, state: OptState): [np.Array, OptState] => {
-    const [updates, next_state] = optimizer.update(g, state);
+    const totalGradient = differentiateTv ? g.add(differentiateTv(x.ref)) : g;
+    const [updates, next_state] = optimizer.update(totalGradient, state);
     const next = applyUpdates(x, updates);
     return [nonnegative ? np.maximum(next, 0) : next, next_state];
   });
@@ -94,8 +111,10 @@ export async function reconstruct(
       loss += (await evaluate(image!.ref, tree.ref(chunk.state), chunk.target.ref).data())[0] * chunk.weight;
     }
     if (!Number.isFinite(loss)) throw new RangeError("projection loss must be finite");
+    const objective = loss + (evaluateTv ? (await evaluateTv(image!.ref).data())[0] : 0);
+    if (!Number.isFinite(objective)) throw new RangeError("objective must be finite");
     const snapshot = (await image!.ref.data()).slice() as Float32Array;
-    await on_progress({ step, steps, loss, image: snapshot, shape: [...image_shape] });
+    await on_progress({ step, steps, loss, objective, image: snapshot, shape: [...image_shape] });
   };
 
   try {
@@ -147,6 +166,7 @@ export async function reconstruct(
     tree.dispose(scanner);
     target.dispose();
     evaluate.dispose();
+    evaluateTv?.dispose();
     differentiate.dispose();
     update.dispose();
   }

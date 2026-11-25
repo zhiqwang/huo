@@ -6,17 +6,32 @@ import { reconstruct, check_finite } from "../dist/src/index.js";
 import { close, scanner, objective } from "./helpers.mjs";
 
 await init("wasm");
-for (const nonnegative of [true, false])
+
+function variation(image) {
+  const measure = (axis) => {
+    const difference = np.diff(image.ref, 1, axis);
+    return np.maximum(difference.ref, 0).add(np.maximum(difference.neg(), 0)).mean();
+  };
+  const value = measure(-1).add(measure(-2));
+  image.dispose();
+  return value;
+}
+
+for (const [nonnegative, tv_weight] of [[true, 0], [false, 0], [true, 0.5]])
   for (const chunk of [1, 3, 8]) {
-    test(`chunk=${chunk} matches full-loss Adam, nonnegative=${nonnegative}`, async () => {
+    test(`chunk=${chunk} matches full-loss Adam, nonnegative=${nonnegative}, TV=${tv_weight}`, async () => {
       const p = scanner();
       const target = p.forward(np.full([2, 1, 3, 3], nonnegative ? 1 : -1));
-      const initial = np.full([2, 1, 3, 3], -0.1);
+      // Distinct pixels keep the chunk comparison away from TV's subgradient kink.
+      const values = Float32Array.from({ length: 18 }, (_, i) => tv_weight ? 0.04 + 0.01 * i : -0.1);
+      const initial = np.array(values).reshape([2, 1, 3, 3]);
       const optimizer = adam(0.03);
       let expected = nonnegative ? np.maximum(initial.ref, 0) : initial.ref;
       let state = optimizer.init(expected.ref);
       const update = jit((x, s) => {
-        const gradient = grad((value) => objective(value, p, target.ref))(x.ref);
+        const gradient = grad((value) => tv_weight
+          ? objective(value.ref, p, target.ref).add(variation(value).mul(tv_weight))
+          : objective(value, p, target.ref))(x.ref);
         const [updates, nextState] = optimizer.update(gradient, s);
         const value = applyUpdates(x, updates);
         return [nonnegative ? np.maximum(value, 0) : value, nextState];
@@ -28,6 +43,7 @@ for (const nonnegative of [true, false])
           lr: 0.03,
           initial_image: initial,
           nonnegative,
+          tv_weight,
           view_chunk_size: chunk,
         });
         close(await actual.ref.data(), await expected.ref.data(), 3e-6);
@@ -35,7 +51,7 @@ for (const nonnegative of [true, false])
           (await objective(actual, p, target.ref).data())[0] <
             (await np.square(target.ref).mean().mul(0.5).data())[0],
         );
-        close(await initial.ref.data(), new Float32Array(initial.size).fill(-0.1), 1e-7);
+        close(await initial.ref.data(), values, 1e-7);
         assert.equal(initial.refCount, 1);
       } finally {
         expected.dispose();
@@ -55,10 +71,13 @@ test("progress snapshots match post-update loss and cannot mutate solver arrays"
   try {
     const image = await reconstruct(p, measured, {
       steps: 5,
+      tv_weight: 0.5,
       report_every: 2,
       on_progress: async (info) => {
-        const loss = await objective(np.array(info.image).reshape(info.shape), p, measured.ref).data();
-        close([info.loss], loss, 2e-6);
+        const snapshot = np.array(info.image).reshape(info.shape);
+        const [loss] = await objective(snapshot.ref, p, measured.ref).data();
+        const [tv] = await variation(snapshot).data();
+        close([info.loss, info.objective], [loss, loss + 0.5 * tv], 2e-6);
         seen.push(info.step);
         info.image.fill(NaN);
       },
@@ -74,10 +93,24 @@ test("progress snapshots match post-update loss and cannot mutate solver arrays"
   }
 });
 
+test("TV contributes zero gradient at a flat starting image", async () => {
+  const p = scanner();
+  const measured = p.forward(np.ones([3, 3]));
+  try {
+    const plain = await reconstruct(p, measured, { steps: 1 });
+    const regularized = await reconstruct(p, measured, { steps: 1, tv_weight: 0.5 });
+    assert.deepEqual(await regularized.data(), await plain.data());
+  } finally {
+    measured.dispose();
+    p.dispose();
+  }
+});
+
 test("repeated solves, cancellation, and callback failures release borrowed references", async () => {
   const p = scanner();
   const measured = p.forward(np.ones([3, 3]));
   const initial = np.zeros([3, 3]);
+  const options = { tv_weight: 0.5, initial_image: initial };
   const baseline = () => {
     assert.equal(measured.refCount, 1);
     assert.equal(initial.refCount, 1);
@@ -85,12 +118,13 @@ test("repeated solves, cancellation, and callback failures release borrowed refe
   };
   try {
     for (let i = 0; i < 3; i++) {
-      (await reconstruct(p, measured, { steps: 2, initial_image: initial })).dispose();
+      (await reconstruct(p, measured, { ...options, steps: 2 })).dispose();
       baseline();
     }
     const controller = new AbortController();
     await assert.rejects(
       reconstruct(p, measured, {
+        ...options,
         steps: 5,
         report_every: 1,
         signal: controller.signal,
@@ -103,6 +137,7 @@ test("repeated solves, cancellation, and callback failures release borrowed refe
     baseline();
     await assert.rejects(
       reconstruct(p, measured, {
+        ...options,
         steps: 5,
         on_progress: () => {
           throw new Error("callback failed");
@@ -130,6 +165,9 @@ test("invalid measurements/settings fail without consuming caller inputs", async
       { lr: NaN },
       { lr: 0 },
       { nonnegative: 1 },
+      { tv_weight: -1 },
+      { tv_weight: Infinity },
+      { tv_weight: "0.5" },
       { view_chunk_size: 0 },
       { report_every: 0 },
     ]) {

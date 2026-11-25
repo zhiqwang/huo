@@ -82,6 +82,8 @@ and Hessians refer to image or network values, not scanner calibration.
 The convenience helper compiles the complete Optax Adam loop with `lax.scan`.
 It minimizes half mean squared projection residual, starting from zeros unless
 an `initial_image` is supplied. Nonnegative projection is enabled by default.
+Set `tv_weight` to add the mean absolute differences along both image axes to
+the objective with that weight.
 
 ```python
 image = reconstruct(projector, measured, steps=200, lr=0.03)
@@ -92,7 +94,7 @@ print("projection loss:", float(loss), "->", float(final_loss))
 
 The compiled solver is cached across calls with matching shapes, dtypes, and
 static settings. If wrapping `reconstruct` in another `jax.jit`, make `steps`,
-`lr`, and `nonnegative` static. The result has the measurement's batch dimensions
+`lr`, `nonnegative`, and `tv_weight` static. The result has the measurement's batch dimensions
 followed by `[N, N]`. Inputs remain unchanged. Gradients through the helper's
 optimization trajectory are stopped; use your own loop for differentiable
 unrolling or a custom objective.

@@ -10,7 +10,7 @@
     <main>
       <h1>Interactive Browser Demo</h1>
       <p>
-        Watch a phantom image become a sinogram, then reconstruct it by minimizing projection loss.
+        Watch a phantom image become a sinogram, then reconstruct it with TV-regularized Adam.
         Select <strong>Start</strong> to run both stages in your browser.
       </p>
 <!-- demo-content:start -->
@@ -31,6 +31,13 @@
           <option value="120">120</option>
           <option value="300" selected>300</option>
           <option value="600">600</option>
+        </select>
+      </div>
+      <div>
+        <label for="tvWeight">TV weight</label>
+        <select id="tvWeight">
+          <option value="0">Off</option>
+          <option value="0.5" selected>0.5</option>
         </select>
       </div>
       <div class="huo-demo-delay">
@@ -56,18 +63,33 @@
     <figure class="huo-demo-panel">
       <figcaption><strong>Adam reconstruction</strong><span>Image fitted to measured projections</span></figcaption>
       <div class="huo-demo-canvas">
-        <canvas id="reconstruction" width="64" height="64" role="img" aria-label="Image reconstructed by minimizing projection loss"></canvas>
+        <canvas id="reconstruction" width="64" height="64" role="img" aria-label="Image reconstructed with Adam"></canvas>
       </div>
     </figure>
   </div>
   <section class="huo-demo-panel huo-demo-error" aria-labelledby="imageErrorTitle">
     <div class="huo-demo-error-summary">
-      <div>
-        <strong id="imageErrorTitle">Image error</strong>
-        <span>Relative L2 vs. original phantom</span>
-      </div>
-      <output id="imageError" aria-label="Current relative L2 image error" aria-live="off">—</output>
+      <strong id="imageErrorTitle">Image quality</strong>
+      <span>Compared with the original phantom</span>
     </div>
+    <dl class="huo-demo-quality">
+      <div>
+        <dt id="relativeL2Label">Relative L2</dt>
+        <dd><output id="imageError" aria-labelledby="relativeL2Label" aria-live="off">—</output></dd>
+      </div>
+      <div>
+        <dt id="ssimLabel">SSIM</dt>
+        <dd><output id="imageSsim" aria-labelledby="ssimLabel" aria-live="off">—</output></dd>
+      </div>
+      <div>
+        <dt id="psnrLabel">PSNR</dt>
+        <dd><output id="imagePsnr" aria-labelledby="psnrLabel" aria-live="off">—</output></dd>
+      </div>
+      <div>
+        <dt id="variationLabel">Flat-region variation</dt>
+        <dd><output id="imageVariation" aria-labelledby="variationLabel" aria-live="off">—</output></dd>
+      </div>
+    </dl>
     <div class="huo-demo-error-chart">
       <div class="huo-demo-error-scale" aria-hidden="true">
         <span id="imageErrorMax">100%</span>
@@ -76,6 +98,7 @@
       <canvas id="imageErrorChart" width="720" height="96" role="img" aria-label="Relative L2 image error by Adam step"></canvas>
       <div class="huo-demo-error-steps" aria-hidden="true">
         <span>Step 0</span>
+        <span>Relative L2</span>
         <span id="imageErrorSteps">Step 300</span>
       </div>
     </div>

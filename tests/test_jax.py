@@ -1,6 +1,6 @@
 """Public JAX contracts, PyTree transforms, compilation, and reconstruction."""
 
-from dataclasses import FrozenInstanceError
+from dataclasses import FrozenInstanceError, replace
 
 import numpy as np
 import pytest
@@ -213,6 +213,13 @@ def test_nonfinite_measurements_and_compiled_solver_checks(projector, phantom):
     assert "measured must contain only finite" in error.get()
 
 
+def test_tv_has_zero_gradient_at_flat_start(projector, phantom):
+    measured = projector(phantom)
+    plain = reconstruct(projector, measured, steps=1)
+    regularized = reconstruct(projector, measured, steps=1, tv_weight=0.5)
+    np.testing.assert_array_equal(regularized, plain)
+
+
 @pytest.mark.parametrize("method", ["scan", "vmap"])
 def test_cli_jax_reconstruction(projector, phantom, method, tmp_path, capsys):
     measured = projector(phantom)
@@ -240,10 +247,14 @@ def test_cli_jax_reconstruction(projector, phantom, method, tmp_path, capsys):
             "30",
             "--lr",
             ".03",
+            "--tv-weight",
+            "0.5",
             "-o",
             str(output),
         ]
     )
     actual = jnp.asarray(np.load(output))
     assert float(jnp.mean((projector(actual) - measured) ** 2)) < float(jnp.mean(measured**2))
+    selected = replace(projector, method=method)
+    np.testing.assert_allclose(actual, reconstruct(selected, measured, steps=30, lr=0.03, tv_weight=0.5))
     assert "backend: jax" in capsys.readouterr().out
