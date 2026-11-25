@@ -17,8 +17,9 @@ def reconstruct(
     lr: float = 1e-2,
     initial_image: Tensor | None = None,
     nonnegative: bool = True,
+    tv_weight: float = 0.0,
 ) -> Tensor:
-    """Fit an image to fixed measurements with Adam and half mean squared error.
+    """Fit fixed measurements with Adam and optional total variation.
 
     ``measured`` has shape [..., views, det_count]. The result has shape
     [..., resolution, resolution]. Inputs are copied and never optimized in
@@ -26,10 +27,12 @@ def reconstruct(
     differentiated. Use the projector directly for custom losses, optimizers,
     regularization, or training a neural network.
 
+    The objective is half the mean squared projection residual plus
+    ``tv_weight`` times the sum of mean absolute differences along both image axes.
     Optimization enables gradients locally, including when called from
     no_grad or inference_mode. Nonnegativity is enforced after each step.
     """
-    validate_optimization(steps, lr, nonnegative)
+    validate_optimization(steps, lr, nonnegative, tv_weight)
     check_tensor(
         measured, (projector.angles.numel(), projector.geometry.det_count), projector.angles, "measured"
     )
@@ -49,6 +52,9 @@ def reconstruct(
         for _ in range(steps):
             optimizer.zero_grad(set_to_none=True)
             loss = 0.5 * F.mse_loss(projector(image), target)
+            if tv_weight:
+                variation = image.diff(dim=-1).abs().mean() + image.diff(dim=-2).abs().mean()
+                loss = loss + tv_weight * variation
             loss.backward()
             optimizer.step()
             if nonnegative:

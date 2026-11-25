@@ -95,6 +95,9 @@ from huo.torch import reconstruct
 result = reconstruct(projector, measured, steps=200, lr=0.03)
 ```
 
+Set `tv_weight` to add total variation to the loss and discourage oscillations
+between neighbouring pixels.
+
 It starts from zeros unless `initial_image` is provided. Nonnegativity is
 applied before the first forward and after every optimizer step. Set
 `nonnegative=False` to fit signed images. Measurements and the initial image

@@ -92,7 +92,11 @@ x^{k+1}=P_+\left(x^k-\eta\nabla_x L(x^k)\right).
 $$
 
 The convenience solver uses Adam, whose moment estimates and adaptive scaling
-determine the update before the nonnegative clamp. `lr` and `steps` specify
+determine the update before the nonnegative clamp. With `tv_weight` $\lambda$
+the objective is $L(x) + \lambda\bigl(\mathrm{mean}|\Delta_x x| +
+\mathrm{mean}|\Delta_y x|\bigr)$, where the differences use adjacent pixels
+along each image axis. Every backend uses a zero subgradient for equal
+neighbours. `lr` and `steps` specify
 optimizer settings; they do not certify convergence or image uniqueness.
 The helpers stop gradients through their returned reconstruction. The projector remains differentiable
 when included in a custom optimization loop or neural network.

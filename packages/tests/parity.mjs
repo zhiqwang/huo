@@ -30,6 +30,7 @@ try {
     lr: 0.03,
     initial_image: initial,
     nonnegative: false,
+    tv_weight: input.tv_weight,
     view_chunk_size: 3,
   });
   process.stdout.write(

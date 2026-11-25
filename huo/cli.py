@@ -35,6 +35,7 @@ def build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument("--steps", default=300, type=int, help="Adam iterations (default: 300)")
     parser.add_argument("--lr", default=1e-2, type=float, help="Adam learning rate (default: 0.01)")
+    parser.add_argument("--tv-weight", default=0.0, type=float, help="total variation weight (default: 0)")
     parser.add_argument("--allow-negative", action="store_true", help="disable nonnegative image projection")
     return parser
 
@@ -46,7 +47,12 @@ def _torch_reconstruct(geometry, angles, values, args):
     projector = FanbeamProjector(geometry, angles)
     measured = torch.from_numpy(values)
     image = reconstruct(
-        projector, measured, steps=args.steps, lr=args.lr, nonnegative=not args.allow_negative
+        projector,
+        measured,
+        steps=args.steps,
+        lr=args.lr,
+        nonnegative=not args.allow_negative,
+        tv_weight=args.tv_weight,
     )
     with torch.no_grad():
         loss = 0.5 * (projector(image) - measured).square().mean()
@@ -61,7 +67,12 @@ def _jax_reconstruct(geometry, angles, values, args):
     projector = FanbeamProjector.create(geometry, angles, method=args.method or "scan")
     measured = jnp.asarray(values)
     image = reconstruct(
-        projector, measured, steps=args.steps, lr=args.lr, nonnegative=not args.allow_negative
+        projector,
+        measured,
+        steps=args.steps,
+        lr=args.lr,
+        nonnegative=not args.allow_negative,
+        tv_weight=args.tv_weight,
     )
     loss = 0.5 * jnp.mean((projector(image) - measured) ** 2)
     return np.asarray(jax.device_get(image)), float(loss)

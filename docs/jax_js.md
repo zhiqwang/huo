@@ -119,9 +119,9 @@ scanner-owned references and may be called more than once.
 
 ```javascript
 const image = await reconstruct(projector, measured, {
-  steps: 200, lr: 0.03, view_chunk_size: 8,
+  steps: 200, lr: 0.03, view_chunk_size: 8, tv_weight: 0.5,
   report_every: 20,
-  on_progress: ({ step, loss }) => console.log(step, loss),
+  on_progress: ({ step, loss, objective }) => console.log(step, loss, objective),
 });
 console.log(image.shape); // [32, 32]
 image.dispose();
@@ -133,21 +133,22 @@ image.dispose();
 | `lr` | `0.01` positive finite learning rate. |
 | `initial_image` | Zeros; supplied arrays must exactly match measurement batch dimensions followed by `[N, N]`. |
 | `nonnegative` | `true`; clamp both the initial image and each updated image. |
+| `tv_weight` | `0`; nonnegative finite weight for anisotropic total variation. |
 | `view_chunk_size` | `8`; positive integer maximum views per gradient chunk. |
 | `report_every` | `10`; progress reports at step zero, every interval, and the final step. |
-| `on_progress` | Optional asynchronous callback with `{step, steps, loss, image, shape}`. |
+| `on_progress` | Optional asynchronous callback with `{step, steps, loss, objective, image, shape}`. |
 | `signal` | Optional `AbortSignal`; cancellation rejects with its abort reason. |
 
-The solver computes each chunk's mean loss gradient, weights it by that chunk's
-fraction of all views, and adds the gradients **before a single Adam update**.
-An uneven last chunk is weighted correctly. This preserves the complete
-mean-loss objective, including all batch dimensions; changing chunk size does
-not change the intended algorithm. Float32 reduction order can change rounding.
+The solver weights each data gradient by the chunk's fraction of all views,
+including an uneven last chunk. It adds the TV gradient once before each Adam
+update. This preserves the complete data and TV objectives across different
+chunk sizes. Roundoff near equal neighbours can change the sign of a TV
+subgradient and affect finite-step results.
 Adam settings are `b1=0.9`, `b2=0.999`, `eps=1e-8`, `epsRoot=0`.
 
-Each progress event contains a copied `Float32Array` snapshot and the loss
-evaluated at that image, after the reported update. Mutating a snapshot does
-not modify the solver. Canvas rendering, frame delays and cancellation controls
+Each progress event contains a copied `Float32Array` snapshot. `loss` is the
+projection term and `objective` adds the weighted TV of the same snapshot.
+Canvas rendering, frame delays and cancellation controls
 belong in the callback/UI. The helper yields to the event loop between updates.
 
 The helper is asynchronous and does not differentiate through its optimization
